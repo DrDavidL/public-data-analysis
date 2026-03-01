@@ -263,6 +263,11 @@ the dataset in relation to the user's question.
 Rules:
 - `df`, `pd`, `np`, `px`, `go` are ALREADY available — do NOT import them.
 - Do NOT re-assign or shadow builtins: str, int, float, list, dict, len, sum, min, max, type.
+- NEVER use variable names starting with underscore (e.g. `_data`, `_temp`). \
+The sandbox will reject them. Use plain names like `data`, `temp`, `cols`.
+- When scaling/normalizing numeric columns, convert to float first \
+(e.g. `vals = df[col].astype(float).values`) and work with NumPy arrays \
+to avoid pandas dtype conflicts.
 - Always aggregate or sort data before plotting — never plot raw unsorted rows.
 - Prefer `px` (plotly.express) for concise code.
 - Assign figures to `fig1`, `fig2`, etc. (not a list).
@@ -380,6 +385,10 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
                 "- Pre-injected modules: pd, np, px (plotly.express), go (plotly.graph_objects)\n"
                 "- Do NOT re-assign pd, np, px, go, str, int, float, list, dict, "
                 "len, sum, min, max, type.\n"
+                "- NEVER use variable names starting with underscore "
+                "(e.g. _data, _temp). Use plain names like data, temp, cols.\n"
+                "- When scaling/normalizing, convert to float first and use "
+                "NumPy arrays to avoid pandas dtype conflicts.\n"
                 "- Do NOT use lifelines or scipy — compute survival/KM curves "
                 "manually with pandas.\n"
                 "- Always sort/aggregate before plotting. Use px (plotly.express).\n"

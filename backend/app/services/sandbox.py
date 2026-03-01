@@ -102,8 +102,10 @@ def _build_globals(session: Session) -> dict[str, Any]:
     builtins["frozenset"] = frozenset
     builtins["dict"] = dict
     builtins["list"] = list
-    # NOTE: getattr, hasattr, type are intentionally EXCLUDED
-    # to prevent sandbox escape via class hierarchy traversal
+    builtins["type"] = type
+    # NOTE: getattr, hasattr are intentionally EXCLUDED
+    # to prevent sandbox escape via class hierarchy traversal.
+    # type() is safe here because getattr is blocked.
     restricted_globals["__builtins__"] = builtins
 
     # RestrictedPython guards
