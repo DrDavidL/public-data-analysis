@@ -22,6 +22,10 @@ class Settings(BaseSettings):
         default="",
         validation_alias=AliasChoices("allowed_emails", "ALLOWED_EMAILS"),
     )
+    admin_emails_str: str = Field(
+        default="",
+        validation_alias=AliasChoices("admin_emails", "ADMIN_EMAILS"),
+    )
 
     # Dataset source API keys (optional)
     datagov_api_key: str = ""
@@ -41,6 +45,11 @@ class Settings(BaseSettings):
     @property
     def allowed_emails(self) -> list[str]:
         return [e.strip() for e in self.allowed_emails_str.split(",") if e.strip()]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def admin_emails(self) -> list[str]:
+        return [e.strip().lower() for e in self.admin_emails_str.split(",") if e.strip()]
 
     @computed_field  # type: ignore[prop-decorator]
     @property

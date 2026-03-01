@@ -18,3 +18,11 @@ class TokenResponse(BaseModel):
 
 class UserResponse(BaseModel):
     email: str
+
+
+class AddEmailRequest(BaseModel):
+    emails: list[EmailStr]
+
+
+class AllowlistResponse(BaseModel):
+    emails: list[str]

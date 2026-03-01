@@ -5,9 +5,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routers import analysis, auth, datasets
+from app.routers import admin, analysis, auth, datasets
+from app.services import allowlist
 
 app = FastAPI(title="Public Data Analysis", version="0.1.0")
+
+# Seed runtime allowlist from config
+allowlist.init(settings.allowed_emails)
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,6 +24,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(datasets.router)
 app.include_router(analysis.router)
+app.include_router(admin.router)
 
 
 @app.get("/api/health")

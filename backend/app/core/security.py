@@ -45,3 +45,12 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> str:
     return decode_access_token(credentials.credentials)
+
+
+def get_admin_user(email: str = Depends(get_current_user)) -> str:
+    if email.lower() not in settings.admin_emails:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return email

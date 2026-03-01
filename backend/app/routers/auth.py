@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.config import settings
 from app.core.security import (
     create_access_token,
     get_current_user,
@@ -8,6 +7,7 @@ from app.core.security import (
     verify_password,
 )
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.services import allowlist
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -16,7 +16,7 @@ _users: dict[str, str] = {}
 
 
 def _check_allowlist(email: str) -> None:
-    if settings.allowed_emails and email not in settings.allowed_emails:
+    if not allowlist.is_allowed(email):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Email not in allowlist",
