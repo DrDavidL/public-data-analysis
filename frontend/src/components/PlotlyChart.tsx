@@ -9,7 +9,7 @@ export default function PlotlyChart({ spec }: Props) {
   const layout = {
     ...(spec.layout as Partial<Plotly.Layout> || {}),
     autosize: true,
-    margin: { t: 40, r: 20, b: 40, l: 50 },
+    margin: { t: 60, r: 20, b: 40, l: 50 },
   };
 
   return (
@@ -17,7 +17,12 @@ export default function PlotlyChart({ spec }: Props) {
       <Plot
         data={data}
         layout={layout}
-        config={{ responsive: true, displayModeBar: true }}
+        config={{
+          responsive: true,
+          displayModeBar: true,
+          modeBarButtonsToRemove: ["lasso2d", "select2d"],
+          displaylogo: false,
+        }}
         style={{ width: "100%", height: "100%" }}
         useResizeHandler
       />
