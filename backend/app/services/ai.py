@@ -19,23 +19,41 @@ def get_client() -> AsyncAzureOpenAI:
     return _client
 
 
-async def chat_mini(messages: list[dict], max_tokens: int = 4096) -> str:
+async def chat_mini(
+    messages: list[dict],
+    max_tokens: int = 4096,
+    reasoning_effort: str = "low",
+    json_mode: bool = False,
+) -> str:
     client = get_client()
-    response = await client.chat.completions.create(
-        model=settings.azure_deployment_mini,
-        messages=messages,
-        max_completion_tokens=max_tokens,
-    )
+    kwargs: dict = {
+        "model": settings.azure_deployment_mini,
+        "messages": messages,
+        "max_completion_tokens": max_tokens,
+        "reasoning_effort": reasoning_effort,
+    }
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+    response = await client.chat.completions.create(**kwargs)
     return response.choices[0].message.content or ""
 
 
-async def chat_full(messages: list[dict], max_tokens: int = 16384) -> str:
+async def chat_full(
+    messages: list[dict],
+    max_tokens: int = 16384,
+    reasoning_effort: str = "high",
+    json_mode: bool = False,
+) -> str:
     client = get_client()
-    response = await client.chat.completions.create(
-        model=settings.azure_deployment_full,
-        messages=messages,
-        max_completion_tokens=max_tokens,
-    )
+    kwargs: dict = {
+        "model": settings.azure_deployment_full,
+        "messages": messages,
+        "max_completion_tokens": max_tokens,
+        "reasoning_effort": reasoning_effort,
+    }
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+    response = await client.chat.completions.create(**kwargs)
     return response.choices[0].message.content or ""
 
 

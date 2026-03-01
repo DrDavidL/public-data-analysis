@@ -20,23 +20,24 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Exact allowlist of importable modules — no wildcard submodule access.
+# Top-level packages allowed for import (submodules are also permitted).
 # Includes pre-injected modules so AI-generated `import pandas as pd` etc.
 # are harmless no-ops rather than hard failures.
-ALLOWED_IMPORTS = frozenset(
-    {
-        "math",
-        "statistics",
-        "json",
-        "datetime",
-        "collections",
-        "pandas",
-        "numpy",
-        "plotly",
-        "plotly.express",
-        "plotly.graph_objects",
-    }
+ALLOWED_IMPORT_PREFIXES = (
+    "math",
+    "statistics",
+    "json",
+    "datetime",
+    "collections",
+    "pandas",
+    "numpy",
+    "plotly",
+    "sklearn",
+    "scipy",
 )
+
+# Modules explicitly blocked even if they match an allowed prefix
+BLOCKED_IMPORTS = frozenset({"os", "sys", "subprocess", "shutil", "socket", "http", "ctypes"})
 
 
 class SandboxTimeoutError(Exception):
@@ -52,8 +53,10 @@ def _restricted_import(
     *args: Any,
     **kwargs: Any,
 ) -> Any:
-    """Only allow imports from an explicit allowlist. No submodule wildcards."""
-    if name not in ALLOWED_IMPORTS:
+    """Allow imports of allowed packages and their submodules."""
+    if name in BLOCKED_IMPORTS:
+        raise ImportError(f"Import of '{name}' is not allowed")
+    if not any(name == p or name.startswith(p + ".") for p in ALLOWED_IMPORT_PREFIXES):
         raise ImportError(f"Import of '{name}' is not allowed")
     import builtins
 

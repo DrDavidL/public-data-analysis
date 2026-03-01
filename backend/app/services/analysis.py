@@ -16,7 +16,7 @@ from app.schemas.analysis import (
     StartResponse,
     UploadResponse,
 )
-from app.services.ai import chat_full
+from app.services.ai import chat_full, chat_mini, extract_json
 from app.services.datastore import (
     get_column_profile,
     get_sample,
@@ -268,6 +268,8 @@ The sandbox will reject them. Use plain names like `data`, `temp`, `cols`.
 - When scaling/normalizing numeric columns, convert to float first \
 (e.g. `vals = df[col].astype(float).values`) and work with NumPy arrays \
 to avoid pandas dtype conflicts.
+- For imputation, use `df.select_dtypes(include="number")` before calling `.median()` \
+or `.mean()` — these fail on string/object columns.
 - Always aggregate or sort data before plotting — never plot raw unsorted rows.
 - Prefer `px` (plotly.express) for concise code.
 - Assign figures to `fig1`, `fig2`, etc. (not a list).
@@ -309,7 +311,9 @@ async def _generate_preliminary_charts(
     from app.services.sandbox import execute_code
 
     try:
-        response_text = await chat_full(messages, max_tokens=4096)
+        response_text = await chat_mini(
+            messages, max_tokens=4096, reasoning_effort="medium",
+        )
         code = _strip_code_fences(response_text)
 
         for attempt in range(MAX_RETRIES):
@@ -333,7 +337,9 @@ async def _generate_preliminary_charts(
                     "Fix the code and respond with corrected Python only."
                 ),
             })
-            response_text = await chat_full(messages, max_tokens=4096)
+            response_text = await chat_mini(
+                messages, max_tokens=4096, reasoning_effort="medium",
+            )
             code = _strip_code_fences(response_text)
 
         return []
@@ -389,6 +395,8 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
                 "(e.g. _data, _temp). Use plain names like data, temp, cols.\n"
                 "- When scaling/normalizing, convert to float first and use "
                 "NumPy arrays to avoid pandas dtype conflicts.\n"
+                "- For imputation, use df.select_dtypes(include='number') before "
+                ".median() or .mean() — these fail on string columns.\n"
                 "- Do NOT use lifelines or scipy — compute survival/KM curves "
                 "manually with pandas.\n"
                 "- Always sort/aggregate before plotting. Use px (plotly.express).\n"
@@ -413,11 +421,12 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
 
     messages.append({"role": "user", "content": req.question})
 
-    from app.services.ai import extract_json
     from app.services.sandbox import execute_code
 
     try:
-        response_text = await chat_full(messages, max_tokens=8192)
+        response_text = await chat_full(
+            messages, max_tokens=8192, json_mode=True,
+        )
         result = extract_json(response_text)
 
         charts = []
@@ -461,7 +470,7 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
                         ),
                     })
                     response_text = await chat_full(
-                        messages, max_tokens=8192,
+                        messages, max_tokens=8192, json_mode=True,
                     )
                     result = extract_json(response_text)
                     sql = result.get("sql", sql)
@@ -510,7 +519,7 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
                     ),
                 })
                 response_text = await chat_full(
-                    messages, max_tokens=8192,
+                    messages, max_tokens=8192, json_mode=True,
                 )
                 result = extract_json(response_text)
                 code = result.get("python_code", code)

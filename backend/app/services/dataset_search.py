@@ -98,7 +98,7 @@ async def _rank_with_ai(question: str, results: list[DatasetResult]) -> list[Dat
         },
     ]
 
-    response_text = await chat_mini(messages, max_tokens=4096)
+    response_text = await chat_mini(messages, max_tokens=4096, json_mode=True)
 
     ranking = extract_json(response_text)
 
