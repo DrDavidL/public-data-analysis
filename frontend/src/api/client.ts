@@ -87,7 +87,22 @@ export const datasetApi = {
     api.post<DatasetResult[]>("/datasets/search", { question }),
 };
 
+export interface UploadResponse {
+  session_id: string;
+  table_name: string;
+  columns: { name: string; type: string }[];
+  row_count: number;
+  summary_stats: Record<string, unknown>;
+  charts: Record<string, unknown>[];
+}
+
 export const analysisApi = {
+  upload: (file: File, question?: string) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("question", question || "Summarize and visualize this dataset");
+    return api.post<UploadResponse>("/analysis/upload", form);
+  },
   start: (data: StartRequest) =>
     api.post<StartResponse>("/analysis/start", data),
   ask: (data: AskRequest) =>

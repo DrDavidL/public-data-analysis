@@ -10,6 +10,15 @@ class StartRequest(BaseModel):
     download_url: str | None = Field(default=None, max_length=2000)
 
 
+class UploadResponse(BaseModel):
+    session_id: str
+    table_name: str
+    columns: list[dict]
+    row_count: int
+    summary_stats: dict = {}
+    charts: list[dict] = []
+
+
 class AddDatasetRequest(BaseModel):
     session_id: str = Field(max_length=64)
     source: str = Field(max_length=50)

@@ -1,7 +1,7 @@
 import logging
 import re
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from app.core.security import get_current_user
 from app.core.sessions import session_manager
@@ -13,8 +13,9 @@ from app.schemas.analysis import (
     StartRequest,
     StartResponse,
     TablesResponse,
+    UploadResponse,
 )
-from app.services.analysis import add_dataset, ask_question, start_analysis
+from app.services.analysis import add_dataset, ask_question, start_analysis, upload_analysis
 from app.services.sandbox import execute_code
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,33 @@ def _validate_sql(sql: str) -> None:
             status_code=400,
             detail="File-access functions are not allowed in user SQL",
         )
+
+
+ALLOWED_EXTENSIONS = {".csv", ".xlsx", ".xls", ".json", ".jsonl", ".parquet"}
+MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
+
+
+@router.post("/upload", response_model=UploadResponse)
+async def upload(
+    file: UploadFile = File(...),
+    question: str = Form(default="Summarize and visualize this dataset"),
+    email: str = Depends(get_current_user),
+) -> UploadResponse:
+    # Validate extension
+    fname = file.filename or "upload.csv"
+    suffix = "." + fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
+    if suffix not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
+        )
+
+    # Read with size limit
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="File exceeds 100 MB limit")
+
+    return await upload_analysis(fname, contents, question, owner=email)
 
 
 @router.post("/start", response_model=StartResponse)

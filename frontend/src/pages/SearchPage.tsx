@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { datasetApi, analysisApi, type DatasetResult } from "../api/client";
 import DatasetCard from "../components/DatasetCard";
+import UploadModal from "../components/UploadModal";
 import { useAuth } from "../hooks/useAuth";
 
 const SEARCH_STEPS = [
@@ -49,7 +50,7 @@ function useProgressSteps(active: boolean, steps: string[], intervalMs = 2200) {
     return () => clearInterval(timerRef.current);
   }, [active, steps, intervalMs]);
 
-  return active ? steps[stepIndex] : "";
+  return active ? steps[stepIndex] ?? "" : "";
 }
 
 export default function SearchPage() {
@@ -57,12 +58,15 @@ export default function SearchPage() {
   const [results, setResults] = useState<DatasetResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
   const [error, setError] = useState("");
   const { logout } = useAuth();
   const navigate = useNavigate();
 
   const searchStatus = useProgressSteps(searching, SEARCH_STEPS);
   const loadingStatus = useProgressSteps(starting, LOADING_STEPS, 3000);
+  const uploadStatus = useProgressSteps(uploading, LOADING_STEPS, 3000);
 
   const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
@@ -106,12 +110,76 @@ export default function SearchPage() {
     }
   };
 
+  const handleUpload = async (file: File, uploadQuestion: string) => {
+    setUploading(true);
+    setError("");
+    try {
+      const res = await analysisApi.upload(file, uploadQuestion);
+      setShowUpload(false);
+      navigate(`/analysis/${res.data.session_id}`, {
+        state: {
+          question: uploadQuestion || "Summarize and visualize this dataset",
+          startResponse: res.data,
+          datasetTitle: file.name,
+          datasetDescription: `Uploaded file: ${file.name}`,
+        },
+      });
+    } catch {
+      setError("Failed to process uploaded file. Check the format and try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSampleSelect = async (url: string, name: string) => {
+    setUploading(true);
+    setError("");
+    try {
+      const res = await analysisApi.start({
+        source: "upload",
+        dataset_id: name,
+        question: `Summarize and visualize this dataset: ${name}`,
+        download_url: url,
+      });
+      setShowUpload(false);
+      navigate(`/analysis/${res.data.session_id}`, {
+        state: {
+          question: `Summarize and visualize this dataset: ${name}`,
+          startResponse: res.data,
+          datasetTitle: name,
+          datasetDescription: `Sample dataset: ${name}`,
+        },
+      });
+    } catch {
+      setError("Failed to load sample dataset. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div style={styles.page}>
       <header style={styles.header}>
-        <h1 style={styles.logo}>Public Data Analysis</h1>
+        <div style={styles.headerLeft}>
+          <h1 style={styles.logo}>Public Data Analysis</h1>
+          <button
+            onClick={() => setShowUpload(true)}
+            style={styles.uploadBtn}
+          >
+            Upload Data
+          </button>
+        </div>
         <button onClick={logout} style={styles.logoutBtn}>Log out</button>
       </header>
+
+      <UploadModal
+        open={showUpload}
+        onClose={() => setShowUpload(false)}
+        onUpload={handleUpload}
+        onSampleSelect={handleSampleSelect}
+        loading={uploading}
+        loadingStatus={uploadStatus}
+      />
 
       <main style={styles.main}>
         <h2 style={styles.heading}>
@@ -186,7 +254,18 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#fff",
     borderBottom: "1px solid #e5e7eb",
   },
+  headerLeft: { display: "flex", alignItems: "center", gap: "1rem" },
   logo: { fontSize: "1.1rem", fontWeight: 700 },
+  uploadBtn: {
+    background: "#f0f2f5",
+    border: "1px solid #d1d5db",
+    borderRadius: "6px",
+    padding: "0.35rem 0.75rem",
+    cursor: "pointer",
+    fontSize: "0.82rem",
+    fontWeight: 600,
+    color: "#374151",
+  },
   logoutBtn: {
     background: "none",
     border: "1px solid #ddd",

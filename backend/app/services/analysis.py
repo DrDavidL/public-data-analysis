@@ -14,6 +14,7 @@ from app.schemas.analysis import (
     AskRequest,
     StartRequest,
     StartResponse,
+    UploadResponse,
 )
 from app.services.ai import chat_full
 from app.services.datastore import (
@@ -186,6 +187,42 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
         )
     except Exception:
         logger.exception("Failed to start analysis")
+        session_manager.remove(session.id)
+        raise
+
+
+async def upload_analysis(
+    filename: str, contents: bytes, question: str, owner: str = ""
+) -> UploadResponse:
+    session = session_manager.create(question, owner=owner)
+
+    try:
+        # Write uploaded file to session temp dir
+        safe_name = _sanitize_filename(filename)
+        file_path = session.temp_dir / safe_name
+        file_path.write_bytes(contents)
+
+        # Derive table name from filename (without extension)
+        base_name = safe_name.rsplit(".", 1)[0] if "." in safe_name else safe_name
+        table_name = load_dataset(session.conn, file_path, base_name)
+        session.tables.append(table_name)
+
+        columns = get_schema(session.conn, table_name)
+        row_count = session.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+        stats = get_stats(session.conn, table_name)
+
+        charts = await _generate_preliminary_charts(session, table_name, question)
+
+        return UploadResponse(
+            session_id=session.id,
+            table_name=table_name,
+            columns=columns,
+            row_count=row_count,
+            summary_stats={"stats": stats} if stats else {},
+            charts=charts,
+        )
+    except Exception:
+        logger.exception("Failed to process uploaded file")
         session_manager.remove(session.id)
         raise
 
