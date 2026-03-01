@@ -4,12 +4,13 @@ AI-powered platform for searching, downloading, and analyzing public datasets wi
 
 ## Features
 
-- **Multi-source dataset search** — queries data.gov, World Bank, Kaggle, HuggingFace, and SDOH Place simultaneously
+- **Multi-source dataset search** — queries 7 sources (data.gov, World Bank, Kaggle, HuggingFace, SDOH Place, CMS, Harvard Dataverse) simultaneously
 - **AI-ranked results** — GPT-5-mini ranks and describes datasets by relevance to your question
 - **Interactive analysis** — ask follow-up questions in natural language, get SQL/Python-backed answers with Plotly charts
 - **Secure REPL** — write your own SQL or Python against loaded datasets in a sandboxed environment
 - **Cross-dataset joins** — load multiple datasets into the same DuckDB session and join them with SQL
 - **Large dataset support** — DuckDB handles files larger than RAM via streaming
+- **Admin email management** — add/remove allowed users at runtime without restarting
 
 ## Architecture
 
@@ -18,7 +19,8 @@ React (Vite + TypeScript + Plotly.js)
   ↓ /api/*
 FastAPI
   ├── Auth (JWT + email allowlist)
-  ├── Dataset Search (5 sources → GPT-5-mini ranking)
+  ├── Admin (runtime allowlist management)
+  ├── Dataset Search (7 sources → GPT-5-mini ranking)
   ├── Analysis (GPT-5.2 → SQL/Plotly chart generation)
   ├── DuckDB (per-session, in-memory)
   └── Sandbox (RestrictedPython REPL)
@@ -36,7 +38,7 @@ FastAPI
 ### 1. Clone and configure
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/DrDavidL/public-data-analysis.git
 cd public-data-analysis
 cp .env.example .env
 ```
@@ -45,7 +47,6 @@ Edit `.env` with your credentials:
 
 ```env
 # Azure OpenAI (required)
-AZURE_API_VERSION="2024-12-01-preview"
 AZURE_ENDPOINT="https://your-endpoint.openai.azure.com/"
 AZURE_API_KEY="your-key"
 AZURE_DEPLOYMENT_MINI="your-mini-deployment"
@@ -54,6 +55,7 @@ AZURE_DEPLOYMENT_FULL="your-full-deployment"
 # Auth (required)
 JWT_SECRET="generate-a-strong-secret"
 ALLOWED_EMAILS="you@example.com"
+ADMIN_EMAILS="you@example.com"
 
 # Dataset sources (optional, enables more results)
 DATAGOV_API_KEY=""          # Free from api.data.gov
@@ -119,16 +121,17 @@ docker run --env-file .env -p 8000:8000 public-data-analysis
 
 Open http://localhost:8000 — the container serves both the API and the built frontend.
 
-## Deploy to Azure
+## Deploy to Azure Container Apps
+
+The app runs on Azure Container Apps with automatic CI/CD via GitHub Actions.
 
 ### 1. Create Azure resources
 
 ```bash
-# Variables
-RG="public-data-analysis-rg"
-ACR="publicdataanalysisacr"
-APP="public-data-analysis-app"
-PLAN="public-data-analysis-plan"
+RG="pubdata-rg"
+ACR="pubdataacr"
+ENV="pubdata-env"
+APP="pubdata-app"
 LOCATION="eastus"
 
 # Resource group
@@ -137,77 +140,96 @@ az group create --name $RG --location $LOCATION
 # Container registry
 az acr create --resource-group $RG --name $ACR --sku Basic --admin-enabled true
 
-# App Service plan (Linux, B1 or higher)
-az appservice plan create \
-  --name $PLAN \
-  --resource-group $RG \
-  --is-linux \
-  --sku B1
-
-# Web app (container-based)
-az webapp create \
-  --resource-group $RG \
-  --plan $PLAN \
-  --name $APP \
-  --container-image-name "$ACR.azurecr.io/public-data-analysis:latest"
+# Container Apps environment
+az containerapp env create --name $ENV --resource-group $RG --location $LOCATION
 ```
 
-### 2. Push the Docker image
+### 2. Build and push the Docker image
 
 ```bash
-# Log in to ACR
 az acr login --name $ACR
-
-# Tag and push
-docker tag public-data-analysis "$ACR.azurecr.io/public-data-analysis:latest"
-docker push "$ACR.azurecr.io/public-data-analysis:latest"
+docker build --platform linux/amd64 -t $ACR.azurecr.io/public-data-analysis:latest .
+docker push $ACR.azurecr.io/public-data-analysis:latest
 ```
 
-### 3. Configure the web app
+### 3. Create the Container App
 
 ```bash
-# Connect App Service to ACR
-az webapp config container set \
+az containerapp create \
   --name $APP \
   --resource-group $RG \
-  --container-image-name "$ACR.azurecr.io/public-data-analysis:latest" \
-  --container-registry-url "https://$ACR.azurecr.io"
-
-# Set the port
-az webapp config appsettings set \
-  --name $APP \
-  --resource-group $RG \
-  --settings WEBSITES_PORT=8000
-
-# Set environment variables (do NOT commit these)
-az webapp config appsettings set \
-  --name $APP \
-  --resource-group $RG \
-  --settings \
-    AZURE_API_VERSION="2024-12-01-preview" \
+  --environment $ENV \
+  --image $ACR.azurecr.io/public-data-analysis:latest \
+  --registry-server $ACR.azurecr.io \
+  --target-port 8000 \
+  --ingress external \
+  --min-replicas 0 \
+  --max-replicas 3 \
+  --cpu 1 \
+  --memory 2Gi \
+  --env-vars \
     AZURE_ENDPOINT="https://your-endpoint.openai.azure.com/" \
     AZURE_API_KEY="your-key" \
-    AZURE_MODEL_NAME_MINI="gpt-5-mini" \
     AZURE_DEPLOYMENT_MINI="your-mini-deployment" \
-    AZURE_MODEL_NAME_FULL="gpt-5.2" \
     AZURE_DEPLOYMENT_FULL="your-full-deployment" \
     JWT_SECRET="your-production-secret" \
-    ALLOWED_EMAILS="user1@example.com,user2@example.com" \
-    DATAGOV_API_KEY="" \
-    KAGGLE_API_TOKEN=""
+    ALLOWED_EMAILS="you@example.com" \
+    ADMIN_EMAILS="you@example.com" \
+    CORS_ORIGINS="https://your-app.azurecontainerapps.io"
 ```
 
-### 4. Redeploy on updates
+### 4. CI/CD with GitHub Actions
+
+The workflow (`.github/workflows/ci.yml`) runs lint, tests, frontend build, and Docker build on every push/PR. On push to `main`, it also deploys to Azure Container Apps.
+
+**Required GitHub secrets:**
+
+| Secret | Value |
+|--------|-------|
+| `AZURE_CREDENTIALS` | Service principal JSON from `az ad sp create-for-rbac --sdk-auth` |
+| `ACR_USERNAME` | ACR admin username |
+| `ACR_PASSWORD` | ACR admin password |
+
+**Required GitHub variables:**
+
+| Variable | Value |
+|----------|-------|
+| `ACR_LOGIN_SERVER` | e.g. `pubdataacr.azurecr.io` |
+| `CONTAINER_APP_NAME` | e.g. `pubdata-app` |
+| `RESOURCE_GROUP` | e.g. `pubdata-rg` |
+
+### 5. Manual redeploy
 
 ```bash
-docker build -t "$ACR.azurecr.io/public-data-analysis:latest" .
-docker push "$ACR.azurecr.io/public-data-analysis:latest"
-az webapp restart --name $APP --resource-group $RG
+az acr login --name $ACR
+docker build --platform linux/amd64 -t $ACR.azurecr.io/public-data-analysis:latest .
+docker push $ACR.azurecr.io/public-data-analysis:latest
+az containerapp update --name $APP --resource-group $RG \
+  --image $ACR.azurecr.io/public-data-analysis:latest
 ```
 
-### CI/CD
+## Admin API
 
-The included GitHub Actions workflow (`.github/workflows/ci.yml`) runs lint, audit, tests, frontend build, and Docker build on every push/PR to `main`. To add automatic deployment, extend it with an Azure login step and `az webapp restart`.
+Manage the email allowlist at runtime (requires `ADMIN_EMAILS` membership):
+
+```bash
+TOKEN="your-jwt-token"
+
+# List allowed emails
+curl -H "Authorization: Bearer $TOKEN" https://your-app/api/admin/allowlist
+
+# Add emails
+curl -X POST -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"emails": ["new@example.com"]}' \
+  https://your-app/api/admin/allowlist
+
+# Remove an email
+curl -X DELETE -H "Authorization: Bearer $TOKEN" \
+  https://your-app/api/admin/allowlist/old@example.com
+```
+
+Changes take effect immediately. The env var `ALLOWED_EMAILS` seeds the allowlist on startup; runtime changes persist until the app restarts.
 
 ## Project Structure
 
@@ -217,9 +239,9 @@ public-data-analysis/
 │   ├── app/
 │   │   ├── main.py              # FastAPI app
 │   │   ├── config.py            # Settings from .env
-│   │   ├── routers/             # auth, datasets, analysis
-│   │   ├── services/            # AI, search, analysis, sandbox, datastore
-│   │   │   └── sources/         # 5 dataset source adapters
+│   │   ├── routers/             # auth, datasets, analysis, admin
+│   │   ├── services/            # AI, search, analysis, sandbox, datastore, allowlist
+│   │   │   └── sources/         # 7 dataset source adapters
 │   │   ├── schemas/             # Pydantic models
 │   │   └── core/                # JWT security, session manager
 │   ├── tests/
@@ -235,6 +257,7 @@ public-data-analysis/
 ├── scripts/                     # dev.sh, lint.sh, audit.sh
 ├── .github/workflows/ci.yml
 ├── Dockerfile
+├── .dockerignore
 ├── .env.example
 └── CLAUDE.md
 ```
