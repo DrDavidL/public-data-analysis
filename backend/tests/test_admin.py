@@ -115,9 +115,9 @@ def test_add_email_normalizes_case(client: TestClient, admin_headers: dict):
 
 def test_allowlist_integration_with_auth(client: TestClient, admin_headers: dict):
     """Adding an email to the allowlist should allow that user to register."""
-    from app.routers.auth import _users
+    from app.services import user_store
 
-    _users.clear()
+    user_store.clear()
 
     # Set up allowlist with only one email
     client.post(
@@ -140,4 +140,4 @@ def test_allowlist_integration_with_auth(client: TestClient, admin_headers: dict
     )
     assert res.status_code == 403
 
-    _users.clear()
+    user_store.clear()

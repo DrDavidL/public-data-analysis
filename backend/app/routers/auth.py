@@ -7,12 +7,9 @@ from app.core.security import (
     verify_password,
 )
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
-from app.services import allowlist
+from app.services import allowlist, user_store
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-# In-memory user store: email -> hashed password
-_users: dict[str, str] = {}
 
 
 def _check_allowlist(email: str) -> None:
@@ -26,12 +23,12 @@ def _check_allowlist(email: str) -> None:
 @router.post("/register", response_model=TokenResponse)
 async def register(body: RegisterRequest) -> TokenResponse:
     _check_allowlist(body.email)
-    if body.email in _users:
+    hashed = hash_password(body.password)
+    if not user_store.register(body.email, hashed):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="User already exists",
         )
-    _users[body.email] = hash_password(body.password)
     token = create_access_token(body.email)
     return TokenResponse(access_token=token)
 
@@ -39,7 +36,7 @@ async def register(body: RegisterRequest) -> TokenResponse:
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginRequest) -> TokenResponse:
     _check_allowlist(body.email)
-    hashed = _users.get(body.email)
+    hashed = user_store.get_password_hash(body.email)
     if not hashed or not verify_password(body.password, hashed):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

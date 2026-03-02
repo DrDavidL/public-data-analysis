@@ -2,17 +2,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.routers.auth import _users
-from app.services import allowlist
+from app.services import allowlist, user_store
 
 
 @pytest.fixture(autouse=True)
 def _clear_users():
     # Clear runtime allowlist so test emails aren't rejected
     allowlist.clear()
-    _users.clear()
+    user_store.clear()
     yield
-    _users.clear()
+    user_store.clear()
     allowlist.clear()
 
 

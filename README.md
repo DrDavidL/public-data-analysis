@@ -231,6 +231,47 @@ curl -X DELETE -H "Authorization: Bearer $TOKEN" \
 
 Changes take effect immediately. The env var `ALLOWED_EMAILS` seeds the allowlist on startup; runtime changes persist until the app restarts.
 
+## Roadmap: Persistent Users
+
+User accounts (email + hashed password) are currently stored in-memory and lost on restart. The email allowlist persists via the `ALLOWED_EMAILS` env var, but users must re-register after each deploy or restart. Below is the planned fix.
+
+### Approach: Azure Table Storage
+
+Azure Table Storage is the best fit — serverless, pennies/month, zero infrastructure, and perfect for simple key-value user records.
+
+### Implementation Plan
+
+1. **Add dependency**: `azure-data-tables` package
+2. **Add env var**: `AZURE_STORAGE_CONNECTION_STRING` (from an Azure Storage Account)
+3. **Create `services/user_store.py`**:
+   - On startup, connect to a `users` table in Azure Table Storage
+   - `register(email, hashed_password)` → insert row (PartitionKey=`"users"`, RowKey=email)
+   - `get(email)` → retrieve hashed password
+   - `exists(email)` → check if registered
+   - Falls back to in-memory dict if no connection string is set (local dev)
+4. **Update `routers/auth.py`**: replace `_users: dict` with calls to `user_store`
+5. **Azure setup**:
+   ```bash
+   # Create storage account (one-time)
+   az storage account create --name pubdatastorage --resource-group pubdata-rg --sku Standard_LRS
+   # Get connection string
+   az storage account show-connection-string --name pubdatastorage --resource-group pubdata-rg -o tsv
+   # Set on container app
+   az containerapp update --name pubdata-app --resource-group pubdata-rg \
+     --set-env-vars "AZURE_STORAGE_CONNECTION_STRING=<connection-string>"
+   ```
+
+### Why Table Storage over alternatives
+
+| Option | Pros | Cons |
+|--------|------|------|
+| **Azure Table Storage** | Serverless, ~$0.01/mo, no schema | Limited querying |
+| SQLite on Azure Files | Simple, familiar | Requires volume mount, write locking |
+| Cosmos DB | Powerful, global replication | Overkill and expensive for user records |
+| PostgreSQL Flexible Server | Full relational DB | ~$15+/mo minimum, overkill |
+
+For a user table with a few dozen rows, Table Storage is the clear winner.
+
 ## Project Structure
 
 ```

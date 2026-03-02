@@ -27,6 +27,9 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("admin_emails", "ADMIN_EMAILS"),
     )
 
+    # Azure Storage (for persistent user store)
+    azure_storage_connection_string: str = ""
+
     # Dataset source API keys (optional)
     datagov_api_key: str = ""
     kaggle_api_token: str = ""
