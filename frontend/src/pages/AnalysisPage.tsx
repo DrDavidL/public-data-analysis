@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { analysisApi, type AnalysisResponse, type TableInfo } from "../api/client";
+import { analysisApi, type AnalysisResponse, type TableInfo, type DataQualityReport as DQReport } from "../api/client";
 import PlotlyChart from "../components/PlotlyChart";
 import ChatPanel from "../components/ChatPanel";
 import ReplPanel from "../components/ReplPanel";
 import DatasetSidebar from "../components/DatasetSidebar";
+import DataQualityReport from "../components/DataQualityReport";
 
 interface Message {
   role: "user" | "assistant";
@@ -23,6 +24,7 @@ interface LocationState {
     table_name: string;
     columns: { name: string; type: string }[];
     row_count: number;
+    data_quality?: DQReport;
     charts: Record<string, unknown>[];
   };
   datasetTitle: string;
@@ -159,6 +161,12 @@ export default function AnalysisPage() {
         <div style={styles.mainArea}>
           {/* Charts area */}
           <div style={styles.chartsArea}>
+            {/* Data Quality Report — shown above charts */}
+            {state?.startResponse.data_quality &&
+              state.startResponse.data_quality.columns?.length > 0 && (
+                <DataQualityReport report={state.startResponse.data_quality} />
+              )}
+
             {charts.length === 0 ? (
               <div style={styles.placeholder}>
                 Charts will appear here as you explore the data.

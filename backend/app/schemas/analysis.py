@@ -16,6 +16,7 @@ class UploadResponse(BaseModel):
     columns: list[dict]
     row_count: int
     summary_stats: dict = {}
+    data_quality: dict = {}
     charts: list[dict] = []
 
 
@@ -32,6 +33,7 @@ class StartResponse(BaseModel):
     columns: list[dict]
     row_count: int
     summary_stats: dict = {}
+    data_quality: dict = {}
     charts: list[dict] = []
 
 

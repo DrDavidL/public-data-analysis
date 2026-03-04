@@ -48,12 +48,37 @@ export interface StartRequest {
   question: string;
   download_url: string | null;
 }
+export interface DataQualityFinding {
+  severity: "error" | "warning" | "info";
+  message: string;
+}
+export interface DataQualityColumnReport {
+  name: string;
+  type: string;
+  missing_count?: number;
+  missing_pct?: number;
+  distinct_count?: number;
+  outlier_count?: number;
+  outlier_pct?: number;
+  issues: string[];
+}
+export interface DataQualityReport {
+  row_count: number;
+  column_count: number;
+  duplicate_rows: number;
+  completeness_pct: number;
+  overall_score: number;
+  summary: string;
+  columns: DataQualityColumnReport[];
+  findings: DataQualityFinding[];
+}
 export interface StartResponse {
   session_id: string;
   table_name: string;
   columns: { name: string; type: string }[];
   row_count: number;
   summary_stats: Record<string, unknown>;
+  data_quality: DataQualityReport;
   charts: Record<string, unknown>[];
 }
 export interface AskRequest {
@@ -93,6 +118,7 @@ export interface UploadResponse {
   columns: { name: string; type: string }[];
   row_count: number;
   summary_stats: Record<string, unknown>;
+  data_quality: DataQualityReport;
   charts: Record<string, unknown>[];
 }
 

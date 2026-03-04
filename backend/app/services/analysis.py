@@ -18,6 +18,7 @@ from app.schemas.analysis import (
 )
 from app.services.ai import chat_full, chat_mini, extract_json
 from app.services.datastore import (
+    assess_data_quality,
     get_column_profile,
     get_sample,
     get_schema,
@@ -174,6 +175,9 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
         row_count = session.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
         stats = get_stats(session.conn, table_name)
 
+        # Run data quality assessment
+        data_quality = assess_data_quality(session.conn, table_name)
+
         # Generate preliminary charts
         charts = await _generate_preliminary_charts(session, table_name, req.question)
 
@@ -183,6 +187,7 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
             columns=columns,
             row_count=row_count,
             summary_stats={"stats": stats} if stats else {},
+            data_quality=data_quality,
             charts=charts,
         )
     except Exception:
@@ -211,6 +216,8 @@ async def upload_analysis(
         row_count = session.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
         stats = get_stats(session.conn, table_name)
 
+        data_quality = assess_data_quality(session.conn, table_name)
+
         charts = await _generate_preliminary_charts(session, table_name, question)
 
         return UploadResponse(
@@ -219,6 +226,7 @@ async def upload_analysis(
             columns=columns,
             row_count=row_count,
             summary_stats={"stats": stats} if stats else {},
+            data_quality=data_quality,
             charts=charts,
         )
     except Exception:

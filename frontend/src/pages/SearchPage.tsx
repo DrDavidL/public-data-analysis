@@ -30,6 +30,7 @@ const LOADING_STEPS = [
   "Downloading dataset...",
   "Loading into analysis engine...",
   "Profiling columns and values...",
+  "Running data quality assessment...",
   "Generating preliminary charts...",
 ];
 
