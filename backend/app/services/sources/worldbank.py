@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from pathlib import Path
 
 import httpx
@@ -19,6 +20,11 @@ TIMEOUT = 15.0
 class WorldBankSource:
     source_name: str = "worldbank"
 
+    # Class-level indicator cache shared across instances.
+    _indicators_cache: list[dict] = []
+    _indicators_timestamp: float = 0.0
+    INDICATORS_CACHE_TTL = 86400  # 24 hours — indicators change very rarely
+
     async def search(self, query: str, limit: int = 5) -> list[DatasetResult]:
         """Search the World Bank Data Catalog and indicator APIs."""
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
@@ -27,6 +33,36 @@ class WorldBankSource:
 
         results = catalog_results + indicator_results
         return results[:limit]
+
+    @classmethod
+    async def _get_all_indicators(cls, client: httpx.AsyncClient) -> list[dict]:
+        """Return all WDI indicators, using a 24-hour in-memory cache."""
+        now = time.monotonic()
+        if cls._indicators_cache and (now - cls._indicators_timestamp) < cls.INDICATORS_CACHE_TTL:
+            logger.debug("World Bank indicators cache hit (%d entries)", len(cls._indicators_cache))
+            return cls._indicators_cache
+
+        try:
+            resp = await client.get(
+                INDICATOR_URL,
+                params={"format": "json", "per_page": 1000, "source": 2},
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+        except (httpx.HTTPError, ValueError):
+            logger.exception("World Bank indicator fetch failed, using stale cache")
+            return cls._indicators_cache  # stale is better than empty
+
+        if not isinstance(payload, list) or len(payload) < 2:
+            return cls._indicators_cache
+
+        indicators: list[dict] = payload[1] or []
+        if indicators:
+            cls._indicators_cache = indicators
+            cls._indicators_timestamp = now
+            logger.info("World Bank indicators cache refreshed (%d entries)", len(indicators))
+
+        return indicators
 
     async def get_download_url(self, dataset_id: str) -> str | None:
         """Return a download URL for a dataset or indicator by ID."""
@@ -167,22 +203,7 @@ async def _fetch_indicators(
     if not keywords:
         return []
 
-    try:
-        resp = await client.get(
-            INDICATOR_URL,
-            params={"format": "json", "per_page": 1000, "source": 2},
-        )
-        resp.raise_for_status()
-        payload = resp.json()
-    except (httpx.HTTPError, ValueError):
-        logger.exception("World Bank indicator search failed for query=%s", query)
-        return []
-
-    # The indicator API returns [pagination_info, [indicator, ...]]
-    if not isinstance(payload, list) or len(payload) < 2:
-        return []
-
-    indicators: list[dict] = payload[1] or []
+    indicators = await WorldBankSource._get_all_indicators(client)
 
     # Score each indicator by how many keywords match its name or description
     scored: list[tuple[int, dict]] = []

@@ -42,6 +42,11 @@ class SDOHPlaceSource:
     _record_ids_cache: list[str] = []
     _cache_timestamp: float = 0.0
 
+    # Full metadata cache — avoids per-record HTTP calls during search.
+    _metadata_cache: dict[str, dict] = {}
+    _metadata_timestamp: float = 0.0
+    METADATA_CACHE_TTL = CACHE_TTL_SECONDS  # same 1-hour TTL
+
     # ------------------------------------------------------------------
     # Search
     # ------------------------------------------------------------------
@@ -51,6 +56,9 @@ class SDOHPlaceSource:
         record_ids = await self._get_record_ids()
         if not record_ids:
             return []
+
+        # Pre-load all metadata into cache (no-op if fresh)
+        await self._load_all_metadata(record_ids)
 
         results: list[DatasetResult] = []
         query_lower = query.lower()
@@ -140,21 +148,74 @@ class SDOHPlaceSource:
         return ids
 
     # ------------------------------------------------------------------
-    # Single record fetch
+    # Bulk metadata loading (cached)
     # ------------------------------------------------------------------
 
-    async def _fetch_record(self, record_id: str) -> dict | None:
-        """Fetch JSON metadata for a single record."""
+    @classmethod
+    async def _load_all_metadata(cls, record_ids: list[str]) -> None:
+        """Fetch metadata for all records in batches, populating the cache."""
+        now = time.monotonic()
+        if cls._metadata_cache and (now - cls._metadata_timestamp) < cls.METADATA_CACHE_TTL:
+            logger.debug("SDOH Place metadata cache hit (%d entries)", len(cls._metadata_cache))
+            return
+
+        # Determine which IDs need fetching
+        missing_ids = [rid for rid in record_ids if rid not in cls._metadata_cache]
+        if not missing_ids and cls._metadata_cache:
+            cls._metadata_timestamp = now
+            return
+
+        ids_to_fetch = missing_ids if missing_ids else record_ids
+        batch_size = 10
+        fetched: dict[str, dict] = {}
+
+        for i in range(0, len(ids_to_fetch), batch_size):
+            batch = ids_to_fetch[i : i + batch_size]
+            tasks = [cls._fetch_record_raw(rid) for rid in batch]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for rid, result in zip(batch, results):
+                if isinstance(result, dict):
+                    fetched[rid] = result
+
+        if fetched:
+            cls._metadata_cache.update(fetched)
+            cls._metadata_timestamp = now
+            logger.info(
+                "SDOH Place metadata cache refreshed (%d new, %d total)",
+                len(fetched),
+                len(cls._metadata_cache),
+            )
+        elif not cls._metadata_cache:
+            logger.warning("SDOH Place metadata fetch returned no results")
+
+    @staticmethod
+    async def _fetch_record_raw(record_id: str) -> dict | None:
+        """Fetch JSON metadata for a single record (no cache check)."""
         url = f"{RECORD_URL}/{record_id}"
-        body = await self._request_with_retries(url, params={"f": "json"})
+        body = await SDOHPlaceSource._request_with_retries(url, params={"f": "json"})
         if body is None:
             return None
-
         try:
             return json.loads(body)
         except (ValueError, TypeError) as exc:
             logger.error("Failed to parse JSON for SDOH Place record %s: %s", record_id, exc)
             return None
+
+    # ------------------------------------------------------------------
+    # Single record fetch (cache-aware)
+    # ------------------------------------------------------------------
+
+    async def _fetch_record(self, record_id: str) -> dict | None:
+        """Return metadata for a single record, checking cache first."""
+        cached = SDOHPlaceSource._metadata_cache.get(record_id)
+        if cached is not None:
+            return cached
+
+        # Cache miss — fetch individually
+        result = await self._fetch_record_raw(record_id)
+        if result is not None:
+            SDOHPlaceSource._metadata_cache[record_id] = result
+        return result
 
     # ------------------------------------------------------------------
     # HTTP helper with retries

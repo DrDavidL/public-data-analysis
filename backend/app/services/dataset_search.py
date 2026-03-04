@@ -4,6 +4,7 @@ import logging
 
 from app.schemas.datasets import DatasetResult
 from app.services.ai import chat_mini, extract_json
+from app.services.source_index import SourceIndex
 from app.services.sources.cms import CMSSource
 from app.services.sources.datagov import DataGovSource
 from app.services.sources.harvard_dataverse import HarvardDataverseSource
@@ -24,6 +25,8 @@ ALL_SOURCES = [
     HarvardDataverseSource(),
 ]
 
+_source_index = SourceIndex()
+
 
 async def _search_source(source: object, query: str, limit: int) -> list[DatasetResult]:
     try:
@@ -34,6 +37,9 @@ async def _search_source(source: object, query: str, limit: int) -> list[Dataset
 
 
 async def search_datasets(question: str, limit_per_source: int = 5) -> list[DatasetResult]:
+    # Refresh cross-source index (no-op if cache is fresh)
+    await _source_index.refresh()
+
     tasks = [_search_source(src, question, limit_per_source) for src in ALL_SOURCES]
     results_per_source = await asyncio.gather(*tasks)
 
@@ -48,6 +54,23 @@ async def search_datasets(question: str, limit_per_source: int = 5) -> list[Data
             downloadable_count,
         )
         all_results.extend(results)
+
+    # Merge any cross-source index hits not already present
+    existing_ids = {(r.source, r.id) for r in all_results}
+    index_hits = _source_index.search(question, limit=10)
+    for hit in index_hits:
+        if (hit.source, hit.id) not in existing_ids:
+            all_results.append(
+                DatasetResult(
+                    source=hit.source,
+                    id=hit.id,
+                    title=hit.title,
+                    description=hit.description,
+                    formats=[],
+                    download_url=None,
+                    metadata={},
+                )
+            )
 
     # Only include results with a download URL — showing un-downloadable
     # results is useless since the user can't start an analysis with them.
