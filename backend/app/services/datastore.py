@@ -124,28 +124,37 @@ def assess_data_quality(conn: duckdb.DuckDBPyConnection, table: str) -> dict:
         # High-missing column
         if missing_pct > 50:
             report["issues"].append("high_missing")
-            findings.append({
-                "severity": "warning",
-                "message": f'Column "{col_name}" is {missing_pct}% missing ({null_count}/{row_count} rows).',
-            })
+            findings.append(
+                {
+                    "severity": "warning",
+                    "message": (
+                        f'Column "{col_name}" is {missing_pct}% missing'
+                        f" ({null_count}/{row_count} rows)."
+                    ),
+                }
+            )
         elif missing_pct > 0:
             report["issues"].append("some_missing")
 
         # Constant column (only 1 distinct non-null value)
         if distinct_count <= 1 and null_count < row_count:
             report["issues"].append("constant")
-            findings.append({
-                "severity": "info",
-                "message": f'Column "{col_name}" has only 1 unique value (constant).',
-            })
+            findings.append(
+                {
+                    "severity": "info",
+                    "message": f'Column "{col_name}" has only 1 unique value (constant).',
+                }
+            )
 
         # All-null column
         if null_count == row_count:
             report["issues"].append("all_null")
-            findings.append({
-                "severity": "warning",
-                "message": f'Column "{col_name}" is entirely null.',
-            })
+            findings.append(
+                {
+                    "severity": "warning",
+                    "message": f'Column "{col_name}" is entirely null.',
+                }
+            )
 
         # Numeric outlier detection via IQR
         type_upper = col_type.upper()
@@ -183,13 +192,15 @@ def assess_data_quality(conn: duckdb.DuckDBPyConnection, table: str) -> dict:
                             report["outlier_pct"] = outlier_pct
                             report["issues"].append("outliers")
                             if outlier_pct > 5:
-                                findings.append({
-                                    "severity": "info",
-                                    "message": (
-                                        f'Column "{col_name}" has {outlier_count} outliers '
-                                        f"({outlier_pct}% of rows, IQR method)."
-                                    ),
-                                })
+                                findings.append(
+                                    {
+                                        "severity": "info",
+                                        "message": (
+                                            f'Column "{col_name}" has {outlier_count} outliers '
+                                            f"({outlier_pct}% of rows, IQR method)."
+                                        ),
+                                    }
+                                )
             except Exception:
                 pass
 
@@ -202,10 +213,12 @@ def assess_data_quality(conn: duckdb.DuckDBPyConnection, table: str) -> dict:
     # Duplicate rows finding
     if dup_count > 0:
         dup_pct = round(100 * dup_count / row_count, 1)
-        findings.append({
-            "severity": "warning" if dup_pct > 5 else "info",
-            "message": f"Found {dup_count} duplicate row groups ({dup_pct}% of data).",
-        })
+        findings.append(
+            {
+                "severity": "warning" if dup_pct > 5 else "info",
+                "message": f"Found {dup_count} duplicate row groups ({dup_pct}% of data).",
+            }
+        )
 
     # Overall completeness score (0-100)
     completeness = round(100 * (1 - total_missing / total_cells), 1) if total_cells else 100

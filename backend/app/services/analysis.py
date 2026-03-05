@@ -320,7 +320,9 @@ async def _generate_preliminary_charts(
 
     try:
         response_text = await chat_mini(
-            messages, max_tokens=4096, reasoning_effort="medium",
+            messages,
+            max_tokens=4096,
+            reasoning_effort="medium",
         )
         code = _strip_code_fences(response_text)
 
@@ -331,22 +333,28 @@ async def _generate_preliminary_charts(
 
             logger.warning(
                 "Preliminary chart code failed (attempt %d/%d): %s",
-                attempt + 1, MAX_RETRIES, sandbox_result["error"],
+                attempt + 1,
+                MAX_RETRIES,
+                sandbox_result["error"],
             )
             if attempt + 1 >= MAX_RETRIES:
                 break
 
             # Ask AI to fix the code
             messages.append({"role": "assistant", "content": code})
-            messages.append({
-                "role": "user",
-                "content": (
-                    f"That code produced an error: {sandbox_result['error']}\n"
-                    "Fix the code and respond with corrected Python only."
-                ),
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": (
+                        f"That code produced an error: {sandbox_result['error']}\n"
+                        "Fix the code and respond with corrected Python only."
+                    ),
+                }
+            )
             response_text = await chat_mini(
-                messages, max_tokens=4096, reasoning_effort="medium",
+                messages,
+                max_tokens=4096,
+                reasoning_effort="medium",
             )
             code = _strip_code_fences(response_text)
 
@@ -433,7 +441,9 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
 
     try:
         response_text = await chat_full(
-            messages, max_tokens=8192, json_mode=True,
+            messages,
+            max_tokens=8192,
+            json_mode=True,
         )
         result = extract_json(response_text)
 
@@ -461,34 +471,39 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
                     last_error = str(e)
                     logger.warning(
                         "SQL execution failed (attempt %d/%d): %s",
-                        attempt + 1, MAX_RETRIES, e,
+                        attempt + 1,
+                        MAX_RETRIES,
+                        e,
                     )
                     if attempt + 1 >= MAX_RETRIES:
                         break
-                    messages.append({
-                        "role": "assistant",
-                        "content": response_text,
-                    })
-                    messages.append({
-                        "role": "user",
-                        "content": (
-                            f"The SQL query failed with: {e}\n"
-                            "Fix the query and respond with the "
-                            "same JSON format."
-                        ),
-                    })
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": response_text,
+                        }
+                    )
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                f"The SQL query failed with: {e}\n"
+                                "Fix the query and respond with the "
+                                "same JSON format."
+                            ),
+                        }
+                    )
                     response_text = await chat_full(
-                        messages, max_tokens=8192, json_mode=True,
+                        messages,
+                        max_tokens=8192,
+                        json_mode=True,
                     )
                     result = extract_json(response_text)
                     sql = result.get("sql", sql)
                     sql_executed = sql
 
             if last_error:
-                result["text_answer"] = (
-                    f"{result.get('text_answer', '')} "
-                    f"(SQL error: {last_error})"
-                )
+                result["text_answer"] = f"{result.get('text_answer', '')} (SQL error: {last_error})"
 
         elif strategy == "python" and result.get("python_code"):
             code = result["python_code"]
@@ -509,25 +524,33 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
                 last_error = sandbox_result["error"]
                 logger.warning(
                     "Python code failed (attempt %d/%d): %s",
-                    attempt + 1, MAX_RETRIES, last_error,
+                    attempt + 1,
+                    MAX_RETRIES,
+                    last_error,
                 )
                 if attempt + 1 >= MAX_RETRIES:
                     break
 
-                messages.append({
-                    "role": "assistant",
-                    "content": response_text,
-                })
-                messages.append({
-                    "role": "user",
-                    "content": (
-                        f"The Python code failed with: {last_error}\n"
-                        "Fix the code and respond with the "
-                        "same JSON format."
-                    ),
-                })
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": response_text,
+                    }
+                )
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            f"The Python code failed with: {last_error}\n"
+                            "Fix the code and respond with the "
+                            "same JSON format."
+                        ),
+                    }
+                )
                 response_text = await chat_full(
-                    messages, max_tokens=8192, json_mode=True,
+                    messages,
+                    max_tokens=8192,
+                    json_mode=True,
                 )
                 result = extract_json(response_text)
                 code = result.get("python_code", code)
@@ -535,8 +558,7 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
 
             if last_error:
                 result["text_answer"] = (
-                    f"{result.get('text_answer', '')} "
-                    f"(Code error: {last_error})"
+                    f"{result.get('text_answer', '')} (Code error: {last_error})"
                 )
 
         # Update chat history

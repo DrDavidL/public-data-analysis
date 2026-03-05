@@ -37,7 +37,9 @@ class DataGovSource:
         except (httpx.HTTPError, ValueError) as exc:
             logger.error(
                 "data.gov search failed for query=%r: %s: %s",
-                query, type(exc).__name__, exc,
+                query,
+                type(exc).__name__,
+                exc,
             )
             return []
 

@@ -12,7 +12,6 @@ from app.services.source_index import SourceIndex
 from app.services.sources.sdohplace import SDOHPlaceSource
 from app.services.sources.worldbank import WorldBankSource
 
-
 # ---------------------------------------------------------------------------
 # Fixtures — reset class-level caches between tests
 # ---------------------------------------------------------------------------
@@ -90,7 +89,11 @@ class TestWorldBankCache:
 
 SAMPLE_SDOH_META = {
     "rec-1": {"title": "Food Access", "description": "Food desert data", "subject": ["health"]},
-    "rec-2": {"title": "Housing Index", "description": "Housing affordability", "keyword": ["housing"]},
+    "rec-2": {
+        "title": "Housing Index",
+        "description": "Housing affordability",
+        "keyword": ["housing"],
+    },
 }
 
 

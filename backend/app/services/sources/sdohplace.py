@@ -173,7 +173,7 @@ class SDOHPlaceSource:
             batch = ids_to_fetch[i : i + batch_size]
             tasks = [cls._fetch_record_raw(rid) for rid in batch]
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            for rid, result in zip(batch, results):
+            for rid, result in zip(batch, results, strict=True):
                 if isinstance(result, dict):
                     fetched[rid] = result
 

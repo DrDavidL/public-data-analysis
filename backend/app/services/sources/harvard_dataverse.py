@@ -40,7 +40,8 @@ class HarvardDataverseSource:
         except (httpx.HTTPError, ValueError) as exc:
             logger.warning(
                 "Harvard Dataverse search failed for query=%r: %s",
-                query, exc,
+                query,
+                exc,
             )
             return []
 
@@ -57,8 +58,7 @@ class HarvardDataverseSource:
             download_url = None
             if dataset_id:
                 download_url = (
-                    f"{BASE_URL}/api/access/dataset/"
-                    f":persistentId/?persistentId={dataset_id}"
+                    f"{BASE_URL}/api/access/dataset/:persistentId/?persistentId={dataset_id}"
                 )
 
             # Collect file format info from the file listing
@@ -93,10 +93,7 @@ class HarvardDataverseSource:
         """Return a download URL for the dataset (ZIP of all files)."""
         if not dataset_id:
             return None
-        return (
-            f"{BASE_URL}/api/access/dataset/"
-            f":persistentId/?persistentId={dataset_id}"
-        )
+        return f"{BASE_URL}/api/access/dataset/:persistentId/?persistentId={dataset_id}"
 
     async def download(self, dataset_id: str, dest_dir: Path) -> Path | None:
         """Download dataset files from Harvard Dataverse.
@@ -111,23 +108,29 @@ class HarvardDataverseSource:
 
         try:
             async with httpx.AsyncClient(
-                timeout=60, follow_redirects=True,
+                timeout=60,
+                follow_redirects=True,
             ) as client:
                 # Try to get individual files via dataset version API
                 file_path = await _download_best_file(
-                    client, dataset_id, dest_dir,
+                    client,
+                    dataset_id,
+                    dest_dir,
                 )
                 if file_path:
                     return file_path
 
                 # Fallback: download full dataset as ZIP
                 return await _download_zip(
-                    client, dataset_id, dest_dir,
+                    client,
+                    dataset_id,
+                    dest_dir,
                 )
         except (httpx.HTTPError, OSError) as exc:
             logger.warning(
                 "Harvard Dataverse download failed for %s: %s",
-                dataset_id, exc,
+                dataset_id,
+                exc,
             )
             return None
 
@@ -218,10 +221,7 @@ async def _download_zip(
     """Download the entire dataset as a ZIP file and extract it."""
     import zipfile
 
-    zip_url = (
-        f"{BASE_URL}/api/access/dataset/"
-        f":persistentId/?persistentId={dataset_id}"
-    )
+    zip_url = f"{BASE_URL}/api/access/dataset/:persistentId/?persistentId={dataset_id}"
     resp = await client.get(zip_url)
     resp.raise_for_status()
 
@@ -240,9 +240,9 @@ async def _download_zip(
 
     # Pick the best extracted file
     data_files = [
-        f for f in dest_dir.iterdir()
-        if f.is_file()
-        and f.suffix.lower() in (".csv", ".tsv", ".tab", ".json", ".parquet")
+        f
+        for f in dest_dir.iterdir()
+        if f.is_file() and f.suffix.lower() in (".csv", ".tsv", ".tab", ".json", ".parquet")
     ]
     if data_files:
         return max(data_files, key=lambda f: f.stat().st_size)

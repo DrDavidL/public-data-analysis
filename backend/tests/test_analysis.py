@@ -1,7 +1,13 @@
 import duckdb
 import pandas as pd
 
-from app.services.datastore import assess_data_quality, get_sample, get_schema, load_dataset, run_query
+from app.services.datastore import (
+    assess_data_quality,
+    get_sample,
+    get_schema,
+    load_dataset,
+    run_query,
+)
 
 
 def test_load_csv(tmp_path):
@@ -107,9 +113,7 @@ def test_assess_data_quality_missing_values(tmp_path):
 
     assert report["completeness_pct"] < 100
     # At least one column should have some_missing or high_missing
-    cols_with_missing = [
-        c for c in report["columns"] if c.get("missing_count", 0) > 0
-    ]
+    cols_with_missing = [c for c in report["columns"] if c.get("missing_count", 0) > 0]
     assert len(cols_with_missing) > 0
     conn.close()
 

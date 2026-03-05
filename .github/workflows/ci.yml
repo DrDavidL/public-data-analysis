@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
       - run: uv sync --directory backend
-      - run: uv run --directory backend pytest backend/tests/ -v
+      - run: uv run --directory backend pytest tests/ -v
 
   build-frontend:
     runs-on: ubuntu-latest

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from app.services.sources.base import extract_keywords
 from app.services.sources.sdohplace import SDOHPlaceSource
@@ -55,9 +55,7 @@ class SourceIndex:
             name = ind.get("name", "")
             note = ind.get("sourceNote", "")
             code = ind.get("id", "")
-            topics = " ".join(
-                t.get("value", "") for t in ind.get("topics", []) if t.get("value")
-            )
+            topics = " ".join(t.get("value", "") for t in ind.get("topics", []) if t.get("value"))
             keywords_text = f"{name} {note} {topics}".lower()
             entries.append(
                 IndexEntry(

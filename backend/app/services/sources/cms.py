@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 METASTORE_URL = "https://data.cms.gov/provider-data/api/1/metastore/schemas/dataset/items"
 DATASTORE_DOWNLOAD_URL = (
-    "https://data.cms.gov/provider-data/api/1/datastore/query/{dataset_id}/0"
-    "/download?format=csv"
+    "https://data.cms.gov/provider-data/api/1/datastore/query/{dataset_id}/0/download?format=csv"
 )
 TIMEOUT = 20.0
 
@@ -101,7 +100,8 @@ class CMSSource:
 
         try:
             async with httpx.AsyncClient(
-                timeout=60, follow_redirects=True,
+                timeout=60,
+                follow_redirects=True,
             ) as client:
                 async with client.stream("GET", download_url) as resp:
                     resp.raise_for_status()
@@ -110,7 +110,9 @@ class CMSSource:
                             fh.write(chunk)
         except (httpx.HTTPError, OSError) as exc:
             logger.warning(
-                "CMS download failed for %s: %s", dataset_id, exc,
+                "CMS download failed for %s: %s",
+                dataset_id,
+                exc,
             )
             return None
 
