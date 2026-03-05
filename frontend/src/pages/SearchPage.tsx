@@ -13,6 +13,7 @@ const SEARCH_STEPS = [
   "Searching SDOH Place...",
   "Searching CMS Medicare/Medicaid...",
   "Searching Harvard Dataverse...",
+  "Searching HUD Open Data...",
   "Ranking results by relevance...",
 ];
 
@@ -24,6 +25,7 @@ const SOURCES = [
   { name: "SDOH Place", color: "#4caf50" },
   { name: "CMS", color: "#d63384" },
   { name: "Harvard Dataverse", color: "#a51c30" },
+  { name: "HUD", color: "#008542" },
 ];
 
 const LOADING_STEPS = [

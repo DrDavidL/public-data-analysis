@@ -205,14 +205,17 @@ async def _fetch_indicators(
 
     indicators = await WorldBankSource._get_all_indicators(client)
 
-    # Score each indicator by how many keywords match its name or description
+    # Score each indicator by how many keywords match its name or description.
+    # Require at least half the keywords to match (minimum 1) to avoid
+    # flooding results with loosely-related indicators.
+    min_hits = max(1, len(keywords) // 2)
     scored: list[tuple[int, dict]] = []
     for ind in indicators:
         name_lower = ind.get("name", "").lower()
         note_lower = ind.get("sourceNote", "").lower()
         text = f"{name_lower} {note_lower}"
         hits = sum(1 for kw in keywords if kw in text)
-        if hits > 0:
+        if hits >= min_hits:
             scored.append((hits, ind))
 
     # Sort by number of keyword hits (descending)

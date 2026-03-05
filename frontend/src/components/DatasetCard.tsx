@@ -8,6 +8,7 @@ const SOURCE_COLORS: Record<string, string> = {
   sdohplace: "#4caf50",
   cms: "#d63384",
   harvard_dataverse: "#a51c30",
+  hud: "#008542",
 };
 
 interface Props {

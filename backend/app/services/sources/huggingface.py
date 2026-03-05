@@ -21,24 +21,54 @@ class HuggingFaceSource:
     source_name: str = "huggingface"
 
     async def search(self, query: str, limit: int = 5) -> list[DatasetResult]:
-        """Search HuggingFace Hub for datasets matching *query*."""
-        params = {
-            "search": query,
-            "limit": limit,
-            "sort": "downloads",
-            "direction": "-1",
-        }
-        try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-                resp = await client.get(_BASE_URL, params=params)
-                resp.raise_for_status()
-                items: list[dict] = resp.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            logger.warning("HuggingFace search failed for query=%r: %s", query, exc)
+        """Search HuggingFace Hub for datasets matching *query*.
+
+        Fetches results in two passes — sorted by relevance (likes) and by
+        downloads — then merges and re-ranks locally so that popular-but-
+        irrelevant datasets don't crowd out relevant ones.
+        """
+        from app.services.sources.base import extract_keywords
+
+        fetch_size = limit * 4  # over-fetch to allow local re-ranking
+        items_by_id: dict[str, dict] = {}
+
+        for sort_key in ("likes", "downloads"):
+            params = {
+                "search": query,
+                "limit": fetch_size,
+                "sort": sort_key,
+                "direction": "-1",
+            }
+            try:
+                async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+                    resp = await client.get(_BASE_URL, params=params)
+                    resp.raise_for_status()
+                    for item in resp.json():
+                        did = item.get("id", "")
+                        if did and did not in items_by_id:
+                            items_by_id[did] = item
+            except (httpx.HTTPError, ValueError) as exc:
+                logger.warning(
+                    "HuggingFace search (%s) failed for query=%r: %s",
+                    sort_key,
+                    query,
+                    exc,
+                )
+
+        if not items_by_id:
             return []
 
+        # Score each result by keyword overlap with id, description, and tags
+        keywords = extract_keywords(query)
+        scored: list[tuple[float, dict]] = []
+        for item in items_by_id.values():
+            score = _relevance_score(item, keywords)
+            scored.append((score, item))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+
         results: list[DatasetResult] = []
-        for item in items:
+        for _score, item in scored[:limit]:
             dataset_id: str = item.get("id", "")
             description = (
                 item.get("description") or item.get("cardData", {}).get("description", "") or ""
@@ -165,3 +195,28 @@ class HuggingFaceSource:
                         if isinstance(entry, dict) and "url" in entry:
                             return entry["url"]
         return None
+
+
+def _relevance_score(item: dict, keywords: list[str]) -> float:
+    """Score a HuggingFace dataset by keyword overlap and popularity."""
+    if not keywords:
+        return 0.0
+
+    import math
+
+    dataset_id = (item.get("id") or "").lower()
+    dataset_id = dataset_id.replace("/", " ").replace("-", " ").replace("_", " ")
+    description = (
+        item.get("description") or item.get("cardData", {}).get("description", "") or ""
+    ).lower()
+    tags = " ".join(item.get("tags", [])).lower()
+    text = f"{dataset_id} {description} {tags}"
+
+    hits = sum(1 for kw in keywords if kw in text)
+    keyword_ratio = hits / len(keywords)
+
+    # Small popularity bonus (log-scaled) so relevance dominates
+    downloads = item.get("downloads", 0)
+    pop_bonus = math.log10(max(downloads, 1)) / 20  # max ~0.35 for 10M downloads
+
+    return keyword_ratio + pop_bonus

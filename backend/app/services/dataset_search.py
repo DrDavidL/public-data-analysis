@@ -8,6 +8,7 @@ from app.services.source_index import SourceIndex
 from app.services.sources.cms import CMSSource
 from app.services.sources.datagov import DataGovSource
 from app.services.sources.harvard_dataverse import HarvardDataverseSource
+from app.services.sources.hud import HUDSource
 from app.services.sources.huggingface import HuggingFaceSource
 from app.services.sources.kaggle_source import KaggleSource
 from app.services.sources.sdohplace import SDOHPlaceSource
@@ -23,6 +24,7 @@ ALL_SOURCES = [
     SDOHPlaceSource(),
     CMSSource(),
     HarvardDataverseSource(),
+    HUDSource(),
 ]
 
 _source_index = SourceIndex()
@@ -36,11 +38,38 @@ async def _search_source(source: object, query: str, limit: int) -> list[Dataset
         return []
 
 
+async def _refine_query(question: str) -> str:
+    """Use AI to extract concise search keywords from a natural language question."""
+    messages = [
+        {
+            "role": "developer",
+            "content": (
+                "Extract 3-6 concise search keywords from the user's research question. "
+                "Return ONLY the keywords separated by spaces, no explanation. "
+                "Focus on the core subject/topic, not filler words."
+            ),
+        },
+        {"role": "user", "content": question},
+    ]
+    try:
+        refined = await chat_mini(messages, max_tokens=100)
+        refined = refined.strip().strip('"').strip("'")
+        if refined and len(refined) < len(question):
+            logger.info("Refined query: %r -> %r", question, refined)
+            return refined
+    except Exception:
+        logger.debug("Query refinement failed, using original question")
+    return question
+
+
 async def search_datasets(question: str, limit_per_source: int = 5) -> list[DatasetResult]:
+    # Refine the natural language question into search-friendly keywords
+    search_query = await _refine_query(question)
+
     # Refresh cross-source index (no-op if cache is fresh)
     await _source_index.refresh()
 
-    tasks = [_search_source(src, question, limit_per_source) for src in ALL_SOURCES]
+    tasks = [_search_source(src, search_query, limit_per_source) for src in ALL_SOURCES]
     results_per_source = await asyncio.gather(*tasks)
 
     all_results: list[DatasetResult] = []
@@ -107,12 +136,14 @@ async def _rank_with_ai(question: str, results: list[DatasetResult]) -> list[Dat
             "role": "developer",
             "content": (
                 "You are a dataset relevance ranker. Given a user's research question and a list "
-                "of datasets, rank them by relevance and provide a brief explanation of why each "
-                "dataset is relevant. Respond with JSON only.\n\n"
+                "of datasets, score each by relevance (0.0-1.0) and provide a brief explanation. "
+                "ONLY include datasets with score >= 0.4 that are genuinely useful for answering "
+                "the question. Omit datasets that merely share a keyword but aren't actually "
+                "relevant. Respond with JSON only.\n\n"
                 "Output format: "
-                '{"ranked": [{"index": <int>, '
+                '{"ranked": [{"index": <int>, "score": <float>, '
                 '"relevance": <str 1-2 sentences>}, ...]}\n'
-                "Return the top 15 most relevant datasets, ordered by relevance."
+                "Return up to 15 relevant datasets, ordered by score descending."
             ),
         },
         {
@@ -127,16 +158,11 @@ async def _rank_with_ai(question: str, results: list[DatasetResult]) -> list[Dat
 
     ranked_results = []
     for item in ranking.get("ranked", []):
-        idx = item["index"]
-        if 0 <= idx < len(results):
+        idx = item.get("index", -1)
+        score = item.get("score", 0.0)
+        if 0 <= idx < len(results) and score >= 0.4:
             result = results[idx]
             result.ai_description = item.get("relevance", "")
             ranked_results.append(result)
-
-    # Add any results not included in ranking
-    ranked_indices = {item["index"] for item in ranking.get("ranked", [])}
-    for i, r in enumerate(results):
-        if i not in ranked_indices and len(ranked_results) < 15:
-            ranked_results.append(r)
 
     return ranked_results
