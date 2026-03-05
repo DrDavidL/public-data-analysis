@@ -36,11 +36,16 @@ async def register(body: RegisterRequest) -> TokenResponse:
 @router.post("/login", response_model=TokenResponse)
 async def login(body: LoginRequest) -> TokenResponse:
     _check_allowlist(body.email)
+    if not user_store.exists(body.email):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found for this email. Please register first.",
+        )
     hashed = user_store.get_password_hash(body.email)
     if not hashed or not verify_password(body.password, hashed):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
+            detail="Incorrect password",
         )
     token = create_access_token(body.email)
     return TokenResponse(access_token=token)

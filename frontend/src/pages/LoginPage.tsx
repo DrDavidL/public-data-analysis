@@ -23,10 +23,14 @@ export default function LoginPage() {
       }
       navigate("/search");
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data
-          ?.detail || "Authentication failed";
-      setError(msg);
+      const resp = (err as { response?: { status?: number; data?: { detail?: string } } })?.response;
+      const detail = resp?.data?.detail || "Authentication failed";
+      if (resp?.status === 404 && !isRegister) {
+        setError("No account found for this email. Click below to register.");
+        setIsRegister(true);
+      } else {
+        setError(detail);
+      }
     } finally {
       setLoading(false);
     }

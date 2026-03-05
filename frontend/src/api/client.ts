@@ -11,11 +11,13 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Redirect to login on 401
+// Redirect to login on 401 (skip for auth endpoints so login errors are visible)
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const url = err.config?.url || "";
+    const isAuthEndpoint = url.startsWith("/auth/");
+    if (err.response?.status === 401 && !isAuthEndpoint) {
       sessionStorage.removeItem("token");
       window.location.href = "/login";
     }
