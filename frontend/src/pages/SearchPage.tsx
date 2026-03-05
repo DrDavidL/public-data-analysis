@@ -102,6 +102,7 @@ export default function SearchPage() {
           datasetTitle: dataset.title,
           datasetDescription:
             dataset.ai_description || dataset.description || "",
+          downloadUrl: dataset.download_url,
         },
       });
     } catch {
@@ -149,6 +150,7 @@ export default function SearchPage() {
           startResponse: res.data,
           datasetTitle: name,
           datasetDescription: `Sample dataset: ${name}`,
+          downloadUrl: url,
         },
       });
     } catch {

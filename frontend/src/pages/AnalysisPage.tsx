@@ -29,6 +29,7 @@ interface LocationState {
   };
   datasetTitle: string;
   datasetDescription?: string;
+  downloadUrl?: string | null;
 }
 
 export default function AnalysisPage() {
@@ -167,6 +168,14 @@ export default function AnalysisPage() {
                 <DataQualityReport report={state.startResponse.data_quality} />
               )}
 
+            {state?.downloadUrl && (
+              <div style={styles.downloadLink}>
+                <a href={state.downloadUrl} target="_blank" rel="noopener noreferrer" style={styles.downloadAnchor}>
+                  Download original dataset
+                </a>
+              </div>
+            )}
+
             {charts.length === 0 ? (
               <div style={styles.placeholder}>
                 Charts will appear here as you explore the data.
@@ -252,6 +261,14 @@ const styles: Record<string, React.CSSProperties> = {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))",
     gap: "1rem",
+  },
+  downloadLink: {
+    marginBottom: "0.75rem",
+    fontSize: "0.82rem",
+  },
+  downloadAnchor: {
+    color: "#2563eb",
+    textDecoration: "none",
   },
   chatArea: { width: 400, flexShrink: 0 },
 };
