@@ -48,7 +48,7 @@ if frontend_dist.is_dir():
 
     # SPA fallback: serve index.html for all non-API routes so client-side
     # routing (React Router) works on refresh and direct navigation.
-    @app.get("/{path:path}", include_in_schema=False)
+    @app.get("/{path:path}", include_in_schema=False, response_model=None)
     async def spa_fallback(request: Request) -> HTMLResponse | FileResponse:
         # Serve actual static files if they exist (e.g. favicon.svg)
         req_path = request.path_params["path"]

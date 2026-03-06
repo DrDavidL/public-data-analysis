@@ -60,9 +60,9 @@ async def _refine_query(question: str) -> str:
         {"role": "user", "content": question},
     ]
     try:
-        refined = await chat_mini(messages, max_tokens=100)
+        refined = await chat_mini(messages, max_tokens=500)
         refined = refined.strip().strip('"').strip("'")
-        if refined and len(refined) < len(question):
+        if refined:
             logger.info("Refined query: %r -> %r", question, refined)
             return refined
     except Exception:
@@ -167,10 +167,18 @@ async def _rank_with_ai(question: str, results: list[DatasetResult]) -> list[Dat
     ranked_results = []
     for item in ranking.get("ranked", []):
         idx = item.get("index", -1)
-        score = item.get("score", 0.0)
+        try:
+            score = float(item.get("score", 0.0))
+        except (TypeError, ValueError):
+            score = 0.0
         if 0 <= idx < len(results) and score >= 0.4:
             result = results[idx]
             result.ai_description = item.get("relevance", "")
             ranked_results.append(result)
+
+    # Fallback: if ranking filtered out everything, return unranked results
+    if not ranked_results and results:
+        logger.warning("AI ranking returned no results above threshold; returning unranked")
+        return results[:15]
 
     return ranked_results

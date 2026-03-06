@@ -9,6 +9,10 @@ const SOURCE_COLORS: Record<string, string> = {
   cms: "#d63384",
   harvard_dataverse: "#a51c30",
   hud: "#008542",
+  bls: "#003366",
+  fred: "#1a5276",
+  cmap: "#6c3483",
+  census: "#b7410e",
 };
 
 interface Props {
