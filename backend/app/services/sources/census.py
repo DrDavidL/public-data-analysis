@@ -1,21 +1,13 @@
 """Census.gov API adapter.
 
-Uses the Census Data API to search available datasets and download data.
-API key is recommended (free at https://api.census.gov/data/key_signup.html)
-but not strictly required for low-volume use.
-
-Key datasets:
-- ACS (American Community Survey) 1-year and 5-year
-- Decennial Census
-- Population Estimates
-- County Business Patterns
+Uses curated ACS 5-Year (2022) datasets with pre-built Census API query URLs
+that return real tabular data at the county level.  No API key required.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import time
 from pathlib import Path
 
 import httpx
@@ -25,33 +17,201 @@ from app.services.sources.base import extract_keywords
 
 logger = logging.getLogger(__name__)
 
-DISCOVERY_URL = "https://api.census.gov/data.json"
-TIMEOUT = 20.0
+TIMEOUT = 30.0
 
-# Cache the dataset catalog (changes rarely)
-_CATALOG_CACHE: list[dict] = []
-_CATALOG_TIMESTAMP: float = 0.0
-_CATALOG_TTL = 86400  # 24 hours
+# ACS 5-Year 2022 base paths
+_SUBJECT = "https://api.census.gov/data/2022/acs/acs5/subject"
+_PROFILE = "https://api.census.gov/data/2022/acs/acs5/profile"
+
+_POPULAR_DATASETS: list[dict[str, str]] = [
+    {
+        "id": "acs5_2022_health_insurance",
+        "title": "Health Insurance Coverage by County (ACS 2022)",
+        "description": (
+            "Civilian noninstitutionalized population health insurance "
+            "coverage. Includes total population, uninsured count, and "
+            "uninsured percentage for every U.S. county."
+        ),
+        "keywords": (
+            "health insurance uninsured coverage medical healthcare "
+            "insured aca affordable care"
+        ),
+        "api_url": (
+            f"{_SUBJECT}?get=NAME,"
+            "S2701_C01_001E,S2701_C04_001E,S2701_C05_001E"
+            "&for=county:*"
+        ),
+    },
+    {
+        "id": "acs5_2022_population_demographics",
+        "title": "Population & Demographics by County (ACS 2022)",
+        "description": (
+            "Total population, sex, median age, and race/ethnicity "
+            "breakdown for every U.S. county."
+        ),
+        "keywords": (
+            "population demographics race ethnicity age sex gender "
+            "hispanic white black asian diversity census"
+        ),
+        "api_url": (
+            f"{_PROFILE}?get=NAME,"
+            "DP05_0001E,DP05_0002E,DP05_0003E,DP05_0018E,"
+            "DP05_0071E,DP05_0077E,DP05_0078E,DP05_0080E"
+            "&for=county:*"
+        ),
+    },
+    {
+        "id": "acs5_2022_income",
+        "title": "Household Income by County (ACS 2022)",
+        "description": (
+            "Median and mean household income for every U.S. county."
+        ),
+        "keywords": (
+            "income household median mean earnings salary wages money "
+            "wealth economic"
+        ),
+        "api_url": (
+            f"{_SUBJECT}?get=NAME,"
+            "S1901_C01_012E,S1901_C01_013E"
+            "&for=county:*"
+        ),
+    },
+    {
+        "id": "acs5_2022_poverty",
+        "title": "Poverty Status by County (ACS 2022)",
+        "description": (
+            "Population below poverty level, count and percentage, "
+            "for every U.S. county."
+        ),
+        "keywords": (
+            "poverty poor low income below poverty level disadvantaged "
+            "economic hardship"
+        ),
+        "api_url": (
+            f"{_SUBJECT}?get=NAME,"
+            "S1701_C01_001E,S1701_C02_001E,S1701_C03_001E"
+            "&for=county:*"
+        ),
+    },
+    {
+        "id": "acs5_2022_employment",
+        "title": "Employment & Labor Force by County (ACS 2022)",
+        "description": (
+            "Labor force participation rate, employment-population ratio, "
+            "and unemployment rate for every U.S. county."
+        ),
+        "keywords": (
+            "employment unemployment labor force jobs workers workforce "
+            "participation jobless"
+        ),
+        "api_url": (
+            f"{_SUBJECT}?get=NAME,"
+            "S2301_C01_001E,S2301_C02_001E,S2301_C03_001E,S2301_C04_001E"
+            "&for=county:*"
+        ),
+    },
+    {
+        "id": "acs5_2022_education",
+        "title": "Educational Attainment by County (ACS 2022)",
+        "description": (
+            "Percentage of population with high school diploma or higher, "
+            "bachelor's degree or higher, and graduate degree."
+        ),
+        "keywords": (
+            "education college degree bachelor highschool graduate school "
+            "attainment diploma university"
+        ),
+        "api_url": (
+            f"{_SUBJECT}?get=NAME,"
+            "S1501_C02_014E,S1501_C02_015E,S1501_C02_013E"
+            "&for=county:*"
+        ),
+    },
+    {
+        "id": "acs5_2022_housing",
+        "title": "Housing Characteristics by County (ACS 2022)",
+        "description": (
+            "Total housing units, occupied units, median gross rent, "
+            "and median home value for every U.S. county."
+        ),
+        "keywords": (
+            "housing rent home value property occupied units median "
+            "rental homeowner shelter"
+        ),
+        "api_url": (
+            f"{_PROFILE}?get=NAME,"
+            "DP04_0001E,DP04_0002E,DP04_0134E,DP04_0089E"
+            "&for=county:*"
+        ),
+    },
+    {
+        "id": "acs5_2022_commuting",
+        "title": "Commuting Patterns by County (ACS 2022)",
+        "description": (
+            "Workers 16+, drove alone percentage, public transit "
+            "percentage, and work-from-home percentage."
+        ),
+        "keywords": (
+            "commuting commute transportation transit drive work from "
+            "home remote telecommute travel car bus"
+        ),
+        "api_url": (
+            f"{_SUBJECT}?get=NAME,"
+            "S0801_C01_001E,S0801_C01_003E,S0801_C01_009E,S0801_C01_013E"
+            "&for=county:*"
+        ),
+    },
+    {
+        "id": "acs5_2022_age",
+        "title": "Age Distribution & Dependency by County (ACS 2022)",
+        "description": (
+            "Median age, percentage under 18, and percentage 65 and "
+            "older for every U.S. county."
+        ),
+        "keywords": (
+            "age median elderly senior youth children dependency aging "
+            "old young retirement"
+        ),
+        "api_url": (
+            f"{_SUBJECT}?get=NAME,"
+            "S0101_C01_032E,S0101_C02_022E,S0101_C02_030E"
+            "&for=county:*"
+        ),
+    },
+    {
+        "id": "acs5_2022_language",
+        "title": "Language Spoken at Home by County (ACS 2022)",
+        "description": (
+            "English-only speakers, Spanish speakers, and limited "
+            "English proficiency for every U.S. county."
+        ),
+        "keywords": (
+            "language english spanish spoken home bilingual limited "
+            "proficiency esl foreign"
+        ),
+        "api_url": (
+            f"{_SUBJECT}?get=NAME,"
+            "S1601_C01_002E,S1601_C01_003E,S1601_C01_010E"
+            "&for=county:*"
+        ),
+    },
+]
 
 
 class CensusSource:
     source_name: str = "census"
 
     async def search(self, query: str, limit: int = 5) -> list[DatasetResult]:
-        """Search Census API datasets by keyword matching against the catalog."""
+        """Search curated Census datasets by keyword matching."""
         keywords = extract_keywords(query)
         if not keywords:
             return []
 
-        catalog = await self._get_catalog()
-        if not catalog:
-            return []
-
         scored: list[tuple[int, dict]] = []
-        for ds in catalog:
-            title = ds.get("title", "").lower()
-            description = ds.get("description", "").lower()
-            text = f"{title} {description}"
+        for ds in _POPULAR_DATASETS:
+            text = (
+                f"{ds['keywords']} {ds['title']} {ds['description']}"
+            ).lower()
             hits = sum(1 for kw in keywords if kw in text)
             if hits > 0:
                 scored.append((hits, ds))
@@ -60,54 +220,29 @@ class CensusSource:
 
         results: list[DatasetResult] = []
         for _hits, ds in scored[:limit]:
-            dist = ds.get("distribution") or []
-            api_url = dist[0].get("accessURL", "") if dist else ""
-            if not api_url:
-                api_url = ds.get("accessURL", "")
-            if not api_url:
-                continue
-
-            dataset_id = ds.get("identifier", "") or api_url
-            title = ds.get("title", "")
-            description = ds.get("description", "")
-
             results.append(
                 DatasetResult(
                     source=self.source_name,
-                    id=dataset_id,
-                    title=title,
-                    description=description[:500] if description else "",
+                    id=ds["id"],
+                    title=ds["title"],
+                    description=ds["description"],
                     formats=["JSON"],
-                    download_url=api_url,
-                    metadata={
-                        k: v
-                        for k, v in {
-                            "vintage": ds.get("c_vintage"),
-                            "geographic_coverage": ds.get("c_geographyLink"),
-                            "modified": ds.get("modified"),
-                        }.items()
-                        if v
-                    },
+                    download_url=ds["api_url"],
+                    metadata={"vintage": "2022", "geography": "county"},
                 )
             )
 
         return results
 
     async def get_download_url(self, dataset_id: str) -> str | None:
-        """Look up the API URL for a dataset by its identifier."""
+        """Look up the API URL for a curated dataset."""
         if not dataset_id:
             return None
-
-        # If the ID is already a URL, use it directly
         if dataset_id.startswith("http"):
             return dataset_id
-
-        catalog = await self._get_catalog()
-        for ds in catalog:
-            if ds.get("identifier") == dataset_id:
-                dist = ds.get("distribution", [{}])
-                if dist:
-                    return dist[0].get("accessURL")
+        for ds in _POPULAR_DATASETS:
+            if ds["id"] == dataset_id:
+                return ds["api_url"]
         return None
 
     async def download(self, dataset_id: str, dest_dir: Path) -> Path | None:
@@ -117,19 +252,14 @@ class CensusSource:
             return None
 
         dest_dir.mkdir(parents=True, exist_ok=True)
-        safe_name = dataset_id.split("/")[-1] if "/" in dataset_id else dataset_id
-        safe_name = safe_name.replace("?", "_").replace("&", "_")[:100]
+        safe_name = dataset_id.replace("/", "_").replace("?", "_").replace("&", "_")[:100]
         dest = dest_dir / f"census_{safe_name}.json"
 
         try:
-            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-                # Census API returns data as a JSON array of arrays:
-                # [["header1","header2",...], ["val1","val2",...], ...]
-                # We request a basic query to get state-level data.
+            async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=True) as client:
                 params: dict[str, str] = {}
                 if "?" not in url:
-                    # No query specified — request all variables for all states
-                    params = {"get": "NAME", "for": "state:*"}
+                    params = {"get": "NAME", "for": "county:*"}
 
                 resp = await client.get(url, params=params)
                 resp.raise_for_status()
@@ -141,36 +271,13 @@ class CensusSource:
 
             # Convert array-of-arrays to array-of-objects
             headers = [str(h) for h in data[0]]
-            records = [{headers[i]: row[i] for i in range(len(headers))} for row in data[1:]]
+            records = [
+                {headers[i]: row[i] for i in range(len(headers))}
+                for row in data[1:]
+            ]
 
             dest.write_text(json.dumps(records, ensure_ascii=False))
             return dest
         except (httpx.HTTPError, OSError, ValueError) as exc:
             logger.warning("Census download failed for %s: %s", dataset_id, exc)
             return None
-
-    @staticmethod
-    async def _get_catalog() -> list[dict]:
-        """Fetch and cache the Census API dataset catalog."""
-        global _CATALOG_CACHE, _CATALOG_TIMESTAMP  # noqa: PLW0603
-
-        now = time.monotonic()
-        if _CATALOG_CACHE and (now - _CATALOG_TIMESTAMP) < _CATALOG_TTL:
-            return _CATALOG_CACHE
-
-        try:
-            async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-                resp = await client.get(DISCOVERY_URL)
-                resp.raise_for_status()
-                data = resp.json()
-        except (httpx.HTTPError, ValueError):
-            logger.exception("Census catalog fetch failed, using stale cache")
-            return _CATALOG_CACHE
-
-        datasets = data.get("dataset", [])
-        if datasets:
-            _CATALOG_CACHE = datasets
-            _CATALOG_TIMESTAMP = now
-            logger.info("Census catalog refreshed (%d datasets)", len(datasets))
-
-        return _CATALOG_CACHE
