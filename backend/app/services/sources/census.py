@@ -223,11 +223,12 @@ class CensusSource:
 
         try:
             async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=True) as client:
-                params: dict[str, str] = {}
-                if "?" not in url:
-                    params = {"get": "NAME", "for": "county:*"}
-
-                resp = await client.get(url, params=params)
+                if "?" in url:
+                    # URL already has query params — don't pass params kwarg
+                    # (httpx replaces the query string when params is provided)
+                    resp = await client.get(url)
+                else:
+                    resp = await client.get(url, params={"get": "NAME", "for": "county:*"})
                 resp.raise_for_status()
                 data = resp.json()
 
