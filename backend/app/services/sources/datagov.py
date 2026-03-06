@@ -98,11 +98,11 @@ class DataGovSource:
             return None
 
         dest_dir.mkdir(parents=True, exist_ok=True)
-        filename = download_url.rsplit("/", 1)[-1] or f"{dataset_id}.csv"
+        filename = download_url.rsplit("/", 1)[-1].split("?")[0] or f"{dataset_id}.csv"
         dest_path = dest_dir / filename
 
         try:
-            async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
                 async with client.stream("GET", download_url) as resp:
                     resp.raise_for_status()
                     with dest_path.open("wb") as fh:

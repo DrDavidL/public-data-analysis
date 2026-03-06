@@ -14,6 +14,10 @@ const SEARCH_STEPS = [
   "Searching CMS Medicare/Medicaid...",
   "Searching Harvard Dataverse...",
   "Searching HUD Open Data...",
+  "Searching BLS...",
+  "Searching FRED...",
+  "Searching CMAP Data Hub...",
+  "Searching Census.gov...",
   "Ranking results by relevance...",
 ];
 
@@ -26,6 +30,10 @@ const SOURCES = [
   { name: "CMS", color: "#d63384" },
   { name: "Harvard Dataverse", color: "#a51c30" },
   { name: "HUD", color: "#008542" },
+  { name: "BLS", color: "#003366" },
+  { name: "FRED", color: "#1a5276" },
+  { name: "CMAP", color: "#6c3483" },
+  { name: "Census", color: "#b7410e" },
 ];
 
 const LOADING_STEPS = [
@@ -64,6 +72,7 @@ export default function SearchPage() {
   const [uploading, setUploading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [error, setError] = useState("");
+  const [searchDone, setSearchDone] = useState(false);
   const { logout } = useAuth();
   const navigate = useNavigate();
 
@@ -77,9 +86,11 @@ export default function SearchPage() {
     setSearching(true);
     setError("");
     setResults([]);
+    setSearchDone(false);
     try {
       const res = await datasetApi.search(question.trim());
       setResults(res.data);
+      setSearchDone(true);
     } catch {
       setError("Search failed. Please try again.");
     } finally {
@@ -227,6 +238,14 @@ export default function SearchPage() {
           </div>
         )}
 
+        {searchDone && results.length === 0 && !searching && (
+          <div style={styles.noResults}>
+            <p style={styles.noResultsText}>
+              No downloadable datasets found for your query. Try rephrasing your question or using different keywords.
+            </p>
+          </div>
+        )}
+
         {results.length > 0 && (
           <div style={styles.results}>
             <h3 style={styles.resultsHeading}>
@@ -343,6 +362,18 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "50%",
     animation: "spin 0.8s linear infinite",
     flexShrink: 0,
+  },
+  noResults: {
+    marginTop: "2rem",
+    padding: "1.5rem",
+    background: "#fff",
+    borderRadius: "10px",
+    textAlign: "center",
+  },
+  noResultsText: {
+    color: "#6b7280",
+    fontSize: "0.95rem",
+    margin: 0,
   },
   results: { marginTop: "2rem" },
   resultsHeading: {

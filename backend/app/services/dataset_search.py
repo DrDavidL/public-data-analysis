@@ -5,8 +5,12 @@ import logging
 from app.schemas.datasets import DatasetResult
 from app.services.ai import chat_mini, extract_json
 from app.services.source_index import SourceIndex
+from app.services.sources.bls import BLSSource
+from app.services.sources.census import CensusSource
+from app.services.sources.cmap import CMAPSource
 from app.services.sources.cms import CMSSource
 from app.services.sources.datagov import DataGovSource
+from app.services.sources.fred import FREDSource
 from app.services.sources.harvard_dataverse import HarvardDataverseSource
 from app.services.sources.hud import HUDSource
 from app.services.sources.huggingface import HuggingFaceSource
@@ -25,6 +29,10 @@ ALL_SOURCES = [
     CMSSource(),
     HarvardDataverseSource(),
     HUDSource(),
+    BLSSource(),
+    FREDSource(),
+    CMAPSource(),
+    CensusSource(),
 ]
 
 _source_index = SourceIndex()

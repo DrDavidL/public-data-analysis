@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     # Dataset source API keys (optional)
     datagov_api_key: str = ""
     kaggle_api_token: str = ""
+    fred_api_key: str = ""
+    bls_api_key: str = ""
 
     # Sandbox
     sandbox_timeout_seconds: int = 30

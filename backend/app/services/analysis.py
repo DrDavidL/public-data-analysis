@@ -37,19 +37,45 @@ MAX_RETRIES = 3
 
 # Allowed URL domains for dataset downloads (SSRF protection)
 ALLOWED_DOWNLOAD_DOMAINS = {
+    # data.gov + common resource hosts
     "catalog.data.gov",
     "data.gov",
+    "data.cdc.gov",
+    "data.census.gov",
+    "ephtracking.cdc.gov",
+    "aqs.epa.gov",
+    "data.epa.gov",
+    "data.transportation.gov",
+    "data.cityofnewyork.us",
+    "data.ca.gov",
+    # World Bank
     "api.worldbank.org",
     "datacatalogapi.worldbank.org",
     "databank.worldbank.org",
+    # HuggingFace
     "huggingface.co",
     "cdn-lfs.huggingface.co",
     "cdn-lfs-us-1.huggingface.co",
+    # Other sources
     "metadata.sdohplace.org",
     "www2.census.gov",
     "raw.githubusercontent.com",
     "data.cms.gov",
     "dataverse.harvard.edu",
+    # HUD GIS
+    "hudgis-hud.opendata.arcgis.com",
+    "opendata.arcgis.com",
+    "services.arcgis.com",
+    # FRED
+    "api.stlouisfed.org",
+    # BLS
+    "api.bls.gov",
+    "data.bls.gov",
+    # CMAP
+    "datahub.cmap.illinois.gov",
+    "services.arcgisonline.com",
+    # Census
+    "api.census.gov",
 }
 
 
@@ -137,9 +163,14 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
 
     try:
         # Download dataset — always prefer source adapter (handles format quirks)
+        from app.services.sources.bls import BLSSource
+        from app.services.sources.census import CensusSource
+        from app.services.sources.cmap import CMAPSource
         from app.services.sources.cms import CMSSource
         from app.services.sources.datagov import DataGovSource
+        from app.services.sources.fred import FREDSource
         from app.services.sources.harvard_dataverse import HarvardDataverseSource
+        from app.services.sources.hud import HUDSource
         from app.services.sources.huggingface import HuggingFaceSource
         from app.services.sources.kaggle_source import KaggleSource
         from app.services.sources.sdohplace import SDOHPlaceSource
@@ -153,12 +184,24 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
             "sdohplace": SDOHPlaceSource(),
             "cms": CMSSource(),
             "harvard_dataverse": HarvardDataverseSource(),
+            "hud": HUDSource(),
+            "bls": BLSSource(),
+            "fred": FREDSource(),
+            "cmap": CMAPSource(),
+            "census": CensusSource(),
         }
         adapter = source_adapters.get(req.source)
 
         file_path = None
         if adapter:
-            file_path = await adapter.download(req.dataset_id, session.temp_dir)
+            try:
+                file_path = await adapter.download(req.dataset_id, session.temp_dir)
+            except Exception:
+                logger.exception(
+                    "Source adapter %s failed for dataset %s",
+                    req.source,
+                    req.dataset_id,
+                )
 
         if not file_path and req.download_url:
             file_path = await _download_file(req.download_url, session.temp_dir, req.dataset_id)
