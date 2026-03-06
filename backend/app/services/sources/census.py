@@ -33,21 +33,17 @@ _POPULAR_DATASETS: list[dict[str, str]] = [
             "uninsured percentage for every U.S. county."
         ),
         "keywords": (
-            "health insurance uninsured coverage medical healthcare "
-            "insured aca affordable care"
+            "health insurance uninsured coverage medical healthcare insured aca affordable care"
         ),
         "api_url": (
-            f"{_SUBJECT}?get=NAME,"
-            "S2701_C01_001E,S2701_C04_001E,S2701_C05_001E"
-            "&for=county:*"
+            f"{_SUBJECT}?get=NAME,S2701_C01_001E,S2701_C04_001E,S2701_C05_001E&for=county:*"
         ),
     },
     {
         "id": "acs5_2022_population_demographics",
         "title": "Population & Demographics by County (ACS 2022)",
         "description": (
-            "Total population, sex, median age, and race/ethnicity "
-            "breakdown for every U.S. county."
+            "Total population, sex, median age, and race/ethnicity breakdown for every U.S. county."
         ),
         "keywords": (
             "population demographics race ethnicity age sex gender "
@@ -63,34 +59,19 @@ _POPULAR_DATASETS: list[dict[str, str]] = [
     {
         "id": "acs5_2022_income",
         "title": "Household Income by County (ACS 2022)",
-        "description": (
-            "Median and mean household income for every U.S. county."
-        ),
-        "keywords": (
-            "income household median mean earnings salary wages money "
-            "wealth economic"
-        ),
-        "api_url": (
-            f"{_SUBJECT}?get=NAME,"
-            "S1901_C01_012E,S1901_C01_013E"
-            "&for=county:*"
-        ),
+        "description": ("Median and mean household income for every U.S. county."),
+        "keywords": ("income household median mean earnings salary wages money wealth economic"),
+        "api_url": (f"{_SUBJECT}?get=NAME,S1901_C01_012E,S1901_C01_013E&for=county:*"),
     },
     {
         "id": "acs5_2022_poverty",
         "title": "Poverty Status by County (ACS 2022)",
         "description": (
-            "Population below poverty level, count and percentage, "
-            "for every U.S. county."
+            "Population below poverty level, count and percentage, for every U.S. county."
         ),
-        "keywords": (
-            "poverty poor low income below poverty level disadvantaged "
-            "economic hardship"
-        ),
+        "keywords": ("poverty poor low income below poverty level disadvantaged economic hardship"),
         "api_url": (
-            f"{_SUBJECT}?get=NAME,"
-            "S1701_C01_001E,S1701_C02_001E,S1701_C03_001E"
-            "&for=county:*"
+            f"{_SUBJECT}?get=NAME,S1701_C01_001E,S1701_C02_001E,S1701_C03_001E&for=county:*"
         ),
     },
     {
@@ -101,8 +82,7 @@ _POPULAR_DATASETS: list[dict[str, str]] = [
             "and unemployment rate for every U.S. county."
         ),
         "keywords": (
-            "employment unemployment labor force jobs workers workforce "
-            "participation jobless"
+            "employment unemployment labor force jobs workers workforce participation jobless"
         ),
         "api_url": (
             f"{_SUBJECT}?get=NAME,"
@@ -122,9 +102,7 @@ _POPULAR_DATASETS: list[dict[str, str]] = [
             "attainment diploma university"
         ),
         "api_url": (
-            f"{_SUBJECT}?get=NAME,"
-            "S1501_C02_014E,S1501_C02_015E,S1501_C02_013E"
-            "&for=county:*"
+            f"{_SUBJECT}?get=NAME,S1501_C02_014E,S1501_C02_015E,S1501_C02_013E&for=county:*"
         ),
     },
     {
@@ -135,13 +113,10 @@ _POPULAR_DATASETS: list[dict[str, str]] = [
             "and median home value for every U.S. county."
         ),
         "keywords": (
-            "housing rent home value property occupied units median "
-            "rental homeowner shelter"
+            "housing rent home value property occupied units median rental homeowner shelter"
         ),
         "api_url": (
-            f"{_PROFILE}?get=NAME,"
-            "DP04_0001E,DP04_0002E,DP04_0134E,DP04_0089E"
-            "&for=county:*"
+            f"{_PROFILE}?get=NAME,DP04_0001E,DP04_0002E,DP04_0134E,DP04_0089E&for=county:*"
         ),
     },
     {
@@ -165,17 +140,13 @@ _POPULAR_DATASETS: list[dict[str, str]] = [
         "id": "acs5_2022_age",
         "title": "Age Distribution & Dependency by County (ACS 2022)",
         "description": (
-            "Median age, percentage under 18, and percentage 65 and "
-            "older for every U.S. county."
+            "Median age, percentage under 18, and percentage 65 and older for every U.S. county."
         ),
         "keywords": (
-            "age median elderly senior youth children dependency aging "
-            "old young retirement"
+            "age median elderly senior youth children dependency aging old young retirement"
         ),
         "api_url": (
-            f"{_SUBJECT}?get=NAME,"
-            "S0101_C01_032E,S0101_C02_022E,S0101_C02_030E"
-            "&for=county:*"
+            f"{_SUBJECT}?get=NAME,S0101_C01_032E,S0101_C02_022E,S0101_C02_030E&for=county:*"
         ),
     },
     {
@@ -186,13 +157,10 @@ _POPULAR_DATASETS: list[dict[str, str]] = [
             "English proficiency for every U.S. county."
         ),
         "keywords": (
-            "language english spanish spoken home bilingual limited "
-            "proficiency esl foreign"
+            "language english spanish spoken home bilingual limited proficiency esl foreign"
         ),
         "api_url": (
-            f"{_SUBJECT}?get=NAME,"
-            "S1601_C01_002E,S1601_C01_003E,S1601_C01_010E"
-            "&for=county:*"
+            f"{_SUBJECT}?get=NAME,S1601_C01_002E,S1601_C01_003E,S1601_C01_010E&for=county:*"
         ),
     },
 ]
@@ -209,9 +177,7 @@ class CensusSource:
 
         scored: list[tuple[int, dict]] = []
         for ds in _POPULAR_DATASETS:
-            text = (
-                f"{ds['keywords']} {ds['title']} {ds['description']}"
-            ).lower()
+            text = (f"{ds['keywords']} {ds['title']} {ds['description']}").lower()
             hits = sum(1 for kw in keywords if kw in text)
             if hits > 0:
                 scored.append((hits, ds))
@@ -271,10 +237,7 @@ class CensusSource:
 
             # Convert array-of-arrays to array-of-objects
             headers = [str(h) for h in data[0]]
-            records = [
-                {headers[i]: row[i] for i in range(len(headers))}
-                for row in data[1:]
-            ]
+            records = [{headers[i]: row[i] for i in range(len(headers))} for row in data[1:]]
 
             dest.write_text(json.dumps(records, ensure_ascii=False))
             return dest
