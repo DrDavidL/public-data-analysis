@@ -35,6 +35,14 @@ FastAPI
   - **Azure OpenAI** — two deployments: a mini model (search/ranking) and a full model (analysis)
   - **Ollama** — free, local, no API key needed
   - **OpenAI** — standard OpenAI API
+ 
+## Screenshots
+
+<img width="644" height="237" alt="image" src="https://github.com/user-attachments/assets/47022761-5de6-4064-b06c-3bb4c2b97c60" />
+
+<img width="390" height="351" alt="image" src="https://github.com/user-attachments/assets/2a66283a-6d63-4be2-a4a9-7559d39eff2e" />
+
+<img width="436" height="351" alt="image" src="https://github.com/user-attachments/assets/a3f2e3f3-6862-49df-8842-90e2f327c153" />
 
 ## Local Development (Azure OpenAI)
 
