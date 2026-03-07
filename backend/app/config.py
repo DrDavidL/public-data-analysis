@@ -7,7 +7,10 @@ logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
-    # Azure OpenAI
+    # LLM provider: "azure" (default), "ollama", or "openai"
+    llm_provider: str = "azure"
+
+    # Azure OpenAI (when llm_provider=azure)
     azure_api_key: str = ""
     azure_endpoint: str = ""
     azure_api_version: str = "2024-12-01-preview"
@@ -15,6 +18,17 @@ class Settings(BaseSettings):
     azure_deployment_mini: str = ""
     azure_model_name_full: str = "gpt-5.2"
     azure_deployment_full: str = ""
+
+    # Ollama (when llm_provider=ollama)
+    ollama_base_url: str = "http://localhost:11434/v1"
+    ollama_model_mini: str = "llama3.1"
+    ollama_model_full: str = "llama3.1"
+
+    # OpenAI (when llm_provider=openai)
+    openai_api_key: str = ""
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_model_mini: str = "gpt-4o-mini"
+    openai_model_full: str = "gpt-4o"
 
     # Auth
     jwt_secret: str = "change-me-in-production"  # noqa: S105

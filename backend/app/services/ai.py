@@ -1,21 +1,53 @@
 import json
 import re
 
-from openai import AsyncAzureOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 from app.config import settings
 
-_client: AsyncAzureOpenAI | None = None
+_client: AsyncAzureOpenAI | AsyncOpenAI | None = None
 
 
-def get_client() -> AsyncAzureOpenAI:
+def _is_reasoning_provider() -> bool:
+    """Azure reasoning models support reasoning_effort and max_completion_tokens."""
+    return settings.llm_provider == "azure"
+
+
+def _get_model_mini() -> str:
+    if settings.llm_provider == "azure":
+        return settings.azure_deployment_mini
+    if settings.llm_provider == "ollama":
+        return settings.ollama_model_mini
+    return settings.openai_model_mini
+
+
+def _get_model_full() -> str:
+    if settings.llm_provider == "azure":
+        return settings.azure_deployment_full
+    if settings.llm_provider == "ollama":
+        return settings.ollama_model_full
+    return settings.openai_model_full
+
+
+def get_client() -> AsyncAzureOpenAI | AsyncOpenAI:
     global _client
     if _client is None:
-        _client = AsyncAzureOpenAI(
-            api_key=settings.azure_api_key,
-            azure_endpoint=settings.azure_endpoint,
-            api_version=settings.azure_api_version,
-        )
+        if settings.llm_provider == "azure":
+            _client = AsyncAzureOpenAI(
+                api_key=settings.azure_api_key,
+                azure_endpoint=settings.azure_endpoint,
+                api_version=settings.azure_api_version,
+            )
+        elif settings.llm_provider == "ollama":
+            _client = AsyncOpenAI(
+                base_url=settings.ollama_base_url,
+                api_key="ollama",
+            )
+        else:
+            _client = AsyncOpenAI(
+                api_key=settings.openai_api_key,
+                base_url=settings.openai_base_url,
+            )
     return _client
 
 
@@ -27,11 +59,14 @@ async def chat_mini(
 ) -> str:
     client = get_client()
     kwargs: dict = {
-        "model": settings.azure_deployment_mini,
+        "model": _get_model_mini(),
         "messages": messages,
-        "max_completion_tokens": max_tokens,
-        "reasoning_effort": reasoning_effort,
     }
+    if _is_reasoning_provider():
+        kwargs["max_completion_tokens"] = max_tokens
+        kwargs["reasoning_effort"] = reasoning_effort
+    else:
+        kwargs["max_tokens"] = max_tokens
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
     response = await client.chat.completions.create(**kwargs)
@@ -46,11 +81,14 @@ async def chat_full(
 ) -> str:
     client = get_client()
     kwargs: dict = {
-        "model": settings.azure_deployment_full,
+        "model": _get_model_full(),
         "messages": messages,
-        "max_completion_tokens": max_tokens,
-        "reasoning_effort": reasoning_effort,
     }
+    if _is_reasoning_provider():
+        kwargs["max_completion_tokens"] = max_tokens
+        kwargs["reasoning_effort"] = reasoning_effort
+    else:
+        kwargs["max_tokens"] = max_tokens
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
     response = await client.chat.completions.create(**kwargs)

@@ -31,9 +31,12 @@ FastAPI
 - **Python 3.12+**
 - **Node.js 22+**
 - **[uv](https://docs.astral.sh/uv/)** — Python package manager
-- **Azure OpenAI** — two deployments: a mini model (search/ranking) and a full model (analysis)
+- **LLM provider** — one of:
+  - **Azure OpenAI** — two deployments: a mini model (search/ranking) and a full model (analysis)
+  - **Ollama** — free, local, no API key needed
+  - **OpenAI** — standard OpenAI API
 
-## Local Development
+## Local Development (Azure OpenAI)
 
 ### 1. Clone and configure
 
@@ -46,6 +49,8 @@ cp .env.example .env
 Edit `.env` with your credentials:
 
 ```env
+LLM_PROVIDER="azure"
+
 # Azure OpenAI (required)
 AZURE_ENDPOINT="https://your-endpoint.openai.azure.com/"
 AZURE_API_KEY="your-key"
@@ -104,6 +109,177 @@ cd backend && uv run pytest tests/ -v
 # Dependency audit
 bash scripts/audit.sh
 ```
+
+## Running with Ollama (Free, Local LLM)
+
+No cloud API or keys needed — run everything on your own machine using open-source models.
+
+### 1. Install Ollama
+
+Download from [ollama.com](https://ollama.com) or:
+
+```bash
+# macOS
+brew install ollama
+
+# Linux
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+### 2. Pull a model
+
+```bash
+# Good general-purpose model (~4.7 GB download)
+ollama pull llama3.1
+
+# For better analysis quality (requires ~40 GB RAM or a GPU with 48 GB VRAM)
+ollama pull llama3.1:70b
+
+# Strong at code generation — good balance of quality and size
+ollama pull qwen2.5-coder:32b
+```
+
+### 3. Clone and configure
+
+```bash
+git clone https://github.com/DrDavidL/public-data-analysis.git
+cd public-data-analysis
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```env
+LLM_PROVIDER="ollama"
+OLLAMA_BASE_URL="http://localhost:11434/v1"
+OLLAMA_MODEL_MINI="llama3.1"
+OLLAMA_MODEL_FULL="llama3.1"
+
+JWT_SECRET="any-local-secret"
+ALLOWED_EMAILS=""              # empty = open access (anyone can register)
+```
+
+### 4. Install and run
+
+```bash
+# Install dependencies
+cd backend && uv sync && cd ..
+cd frontend && npm install && cd ..
+
+# Start Ollama (if not already running)
+ollama serve &
+
+# Start the app
+bash scripts/dev.sh
+```
+
+Open http://localhost:5173.
+
+### Notes on local models
+
+- **Quality varies** — Azure GPT-5.2 is significantly more capable at code generation and structured JSON output than most local models. Chart generation and complex analysis work best with 32B+ parameter models.
+- **Recommended models** — `qwen2.5-coder:32b` is a good sweet spot for code/chart quality vs. hardware requirements. `llama3.1:70b` or `deepseek-r1:70b` for best results.
+- **JSON output** — Smaller models may occasionally produce malformed JSON. The app has fallback parsing to handle this, but responses may sometimes fail.
+
+## Office LAN Setup (Shared Server)
+
+Run the LLM on one powerful machine and let office staff use the app from their browsers — no installs on their laptops.
+
+### Option A: Single server runs everything (simplest)
+
+```
+[Server Machine — GPU + RAM]
+├── Ollama (listening on 0.0.0.0:11434)
+├── FastAPI backend (:8000)
+└── Frontend (served by FastAPI via Docker)
+
+[Staff laptops] → http://server-ip:8000
+```
+
+On the server:
+
+```bash
+# 1. Install Ollama and pull a model
+ollama pull qwen2.5-coder:32b
+
+# 2. Start Ollama on all interfaces so the app can reach it
+OLLAMA_HOST=0.0.0.0 ollama serve &
+
+# 3. Clone, configure, and run
+git clone https://github.com/DrDavidL/public-data-analysis.git
+cd public-data-analysis
+cp .env.example .env
+```
+
+Edit `.env` on the server:
+
+```env
+LLM_PROVIDER="ollama"
+OLLAMA_BASE_URL="http://localhost:11434/v1"
+OLLAMA_MODEL_MINI="qwen2.5-coder:32b"
+OLLAMA_MODEL_FULL="qwen2.5-coder:32b"
+
+JWT_SECRET="generate-a-strong-secret"
+ALLOWED_EMAILS="alice@office.com,bob@office.com"
+CORS_ORIGINS="http://server-ip:8000"
+```
+
+```bash
+# Build and run with Docker
+docker build -t public-data-analysis .
+docker run --env-file .env -p 8000:8000 public-data-analysis
+```
+
+Staff open `http://server-ip:8000` in their browser. No installs needed on their machines.
+
+### Option B: Docker Compose (server + Ollama in one command)
+
+Create a `docker-compose.yml`:
+
+```yaml
+services:
+  ollama:
+    image: ollama/ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+
+  app:
+    build: .
+    env_file: .env
+    environment:
+      OLLAMA_BASE_URL: "http://ollama:11434/v1"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ollama
+
+volumes:
+  ollama_data:
+```
+
+```bash
+docker compose up -d
+# Pull model into the Ollama container (one-time)
+docker compose exec ollama ollama pull qwen2.5-coder:32b
+```
+
+### Hardware recommendations
+
+| Model | Min RAM | GPU VRAM | Quality |
+|-------|---------|----------|---------|
+| `llama3.1` (8B) | 16 GB | 8 GB | Adequate for simple queries |
+| `qwen2.5-coder:32b` | 32 GB | 24 GB | Strong at code/charts |
+| `llama3.1:70b` (70B) | 64 GB | 48 GB | Good for complex analysis |
+| `deepseek-r1:70b` | 64 GB | 48 GB | Best reasoning (closest to GPT-5) |
+
+CPU-only inference works but is slow. A single NVIDIA GPU (RTX 4090, A6000, or better) is recommended for responsive performance.
 
 ## Docker
 
