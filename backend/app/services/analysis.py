@@ -26,6 +26,7 @@ from app.services.datastore import (
     load_dataset,
     sanitize_table_name,
 )
+from app.services.session_store import save as save_session
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +159,38 @@ async def _download_file(url: str, dest_dir: Path, dataset_id: str) -> Path:
         return dest
 
 
+def _save_session_metadata(session: Session) -> None:
+    """Persist session metadata for history/reload."""
+    if not session.owner:
+        return
+    try:
+        table_metadata = []
+        for table in session.tables:
+            try:
+                cols = session.conn.execute(f"DESCRIBE {table}").fetchall()  # noqa: S608
+                columns = [{"name": c[0], "type": c[1]} for c in cols]
+                row_count = session.conn.execute(
+                    f"SELECT COUNT(*) FROM {table}"  # noqa: S608
+                ).fetchone()[0]
+                table_metadata.append({"name": table, "columns": columns, "row_count": row_count})
+            except Exception:  # noqa: S110
+                pass
+
+        save_session(session.owner, session.id, {
+            "dataset_title": session.dataset_title,
+            "dataset_description": session.dataset_description,
+            "dataset_source": session.dataset_source,
+            "dataset_id": session.dataset_id,
+            "download_url": session.download_url,
+            "original_question": session.question,
+            "table_metadata": table_metadata,
+            "chart_code": session.chart_code,
+            "chat_history": session.chat_history[-50:],
+        })
+    except Exception:
+        logger.exception("Failed to save session metadata")
+
+
 async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
     session = session_manager.create(req.question, owner=owner)
 
@@ -222,7 +255,16 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
         data_quality = assess_data_quality(session.conn, table_name)
 
         # Generate preliminary charts
-        charts = await _generate_preliminary_charts(session, table_name, req.question)
+        charts, chart_code = await _generate_preliminary_charts(session, table_name, req.question)
+
+        # Persist session metadata for history
+        session.dataset_title = req.dataset_title or req.dataset_id
+        session.dataset_description = req.dataset_description
+        session.dataset_source = req.source
+        session.dataset_id = req.dataset_id
+        session.download_url = req.download_url or ""
+        session.chart_code = chart_code or ""
+        _save_session_metadata(session)
 
         return StartResponse(
             session_id=session.id,
@@ -232,6 +274,7 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
             summary_stats={"stats": stats} if stats else {},
             data_quality=data_quality,
             charts=charts,
+            chart_code=chart_code,
         )
     except Exception:
         logger.exception("Failed to start analysis")
@@ -261,7 +304,13 @@ async def upload_analysis(
 
         data_quality = assess_data_quality(session.conn, table_name)
 
-        charts = await _generate_preliminary_charts(session, table_name, question)
+        charts, chart_code = await _generate_preliminary_charts(session, table_name, question)
+
+        # Persist session metadata for history
+        session.dataset_title = filename
+        session.dataset_description = f"Uploaded file: {filename}"
+        session.chart_code = chart_code or ""
+        _save_session_metadata(session)
 
         return UploadResponse(
             session_id=session.id,
@@ -271,6 +320,7 @@ async def upload_analysis(
             summary_stats={"stats": stats} if stats else {},
             data_quality=data_quality,
             charts=charts,
+            chart_code=chart_code,
         )
     except Exception:
         logger.exception("Failed to process uploaded file")
@@ -338,7 +388,8 @@ Respond with Python code only — no markdown fences, no explanation.\
 
 async def _generate_preliminary_charts(
     session: Session, table_name: str, question: str
-) -> list[dict]:
+) -> tuple[list[dict], str | None]:
+    """Generate preliminary charts. Returns (figures, source_code)."""
     profile = get_column_profile(session.conn, table_name)
     sample = get_sample(session.conn, table_name, n=5)
 
@@ -372,7 +423,7 @@ async def _generate_preliminary_charts(
         for attempt in range(MAX_RETRIES):
             sandbox_result = execute_code(code, session)
             if not sandbox_result.get("error"):
-                return sandbox_result.get("figures", [])
+                return sandbox_result.get("figures", []), code
 
             logger.warning(
                 "Preliminary chart code failed (attempt %d/%d): %s",
@@ -401,10 +452,10 @@ async def _generate_preliminary_charts(
             )
             code = _strip_code_fences(response_text)
 
-        return []
+        return [], None
     except Exception:
         logger.exception("Failed to generate preliminary charts")
-        return []
+        return [], None
 
 
 async def ask_question(req: AskRequest) -> AnalysisResponse:
@@ -610,8 +661,11 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
             {
                 "role": "assistant",
                 "content": result.get("text_answer", ""),
+                "code_executed": code_executed,
+                "sql_executed": sql_executed,
             }
         )
+        _save_session_metadata(session)
 
         return AnalysisResponse(
             text_answer=result.get("text_answer"),
@@ -632,3 +686,104 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
                 "What columns are available?",
             ],
         )
+
+
+async def reload_session(saved: dict, owner: str) -> dict:
+    """Re-download dataset and re-run chart code from a saved session."""
+    session = session_manager.create(saved.get("original_question", ""), owner=owner)
+
+    try:
+        source = saved.get("dataset_source", "")
+        dataset_id = saved.get("dataset_id", "")
+        download_url = saved.get("download_url", "")
+
+        # Re-download using the same logic as start_analysis
+        from app.services.sources.bls import BLSSource
+        from app.services.sources.census import CensusSource
+        from app.services.sources.cmap import CMAPSource
+        from app.services.sources.cms import CMSSource
+        from app.services.sources.datagov import DataGovSource
+        from app.services.sources.fred import FREDSource
+        from app.services.sources.harvard_dataverse import HarvardDataverseSource
+        from app.services.sources.hud import HUDSource
+        from app.services.sources.huggingface import HuggingFaceSource
+        from app.services.sources.kaggle_source import KaggleSource
+        from app.services.sources.sdohplace import SDOHPlaceSource
+        from app.services.sources.worldbank import WorldBankSource
+
+        source_adapters = {
+            "data.gov": DataGovSource(),
+            "worldbank": WorldBankSource(),
+            "kaggle": KaggleSource(),
+            "huggingface": HuggingFaceSource(),
+            "sdohplace": SDOHPlaceSource(),
+            "cms": CMSSource(),
+            "harvard_dataverse": HarvardDataverseSource(),
+            "hud": HUDSource(),
+            "bls": BLSSource(),
+            "fred": FREDSource(),
+            "cmap": CMAPSource(),
+            "census": CensusSource(),
+        }
+        adapter = source_adapters.get(source)
+
+        file_path = None
+        if adapter and dataset_id:
+            try:
+                file_path = await adapter.download(dataset_id, session.temp_dir)
+            except Exception:
+                logger.exception("Source adapter %s failed for reload", source)
+
+        if not file_path and download_url:
+            file_path = await _download_file(download_url, session.temp_dir, dataset_id)
+
+        if not file_path:
+            session_manager.remove(session.id)
+            raise ValueError("Could not re-download dataset")
+
+        # Load into DuckDB
+        table_name = load_dataset(session.conn, file_path, dataset_id or "dataset")
+        session.tables.append(table_name)
+
+        columns = get_schema(session.conn, table_name)
+        row_count = session.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+
+        data_quality = assess_data_quality(session.conn, table_name)
+
+        # Re-run saved chart code if available
+        charts = []
+        chart_code = saved.get("chart_code", "")
+        if chart_code:
+            from app.services.sandbox import execute_code
+
+            sandbox_result = execute_code(chart_code, session)
+            if not sandbox_result.get("error"):
+                charts = sandbox_result.get("figures", [])
+            else:
+                logger.warning("Saved chart code failed on reload: %s", sandbox_result["error"])
+
+        # Restore session metadata
+        session.dataset_title = saved.get("dataset_title", "")
+        session.dataset_description = saved.get("dataset_description", "")
+        session.dataset_source = source
+        session.dataset_id = dataset_id
+        session.download_url = download_url
+        session.chart_code = chart_code
+
+        return {
+            "session_id": session.id,
+            "table_name": table_name,
+            "columns": columns,
+            "row_count": row_count,
+            "data_quality": data_quality,
+            "charts": charts,
+            "chart_code": chart_code,
+            "chat_history": saved.get("chat_history", []),
+            "dataset_title": saved.get("dataset_title", ""),
+            "dataset_description": saved.get("dataset_description", ""),
+            "download_url": download_url,
+        }
+    except Exception:
+        logger.exception("Failed to reload session")
+        session_manager.remove(session.id)
+        raise

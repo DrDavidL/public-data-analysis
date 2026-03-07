@@ -23,6 +23,13 @@ class Session:
     charts: list[dict] = field(default_factory=list)
     temp_dir: Path = field(default_factory=lambda: Path(tempfile.mkdtemp()))
     last_active: float = field(default_factory=time.time)
+    # Metadata for session persistence (populated by analysis service)
+    dataset_title: str = ""
+    dataset_description: str = ""
+    dataset_source: str = ""
+    dataset_id: str = ""
+    download_url: str = ""
+    chart_code: str = ""
 
     def touch(self) -> None:
         self.last_active = time.time()

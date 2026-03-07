@@ -8,6 +8,8 @@ class StartRequest(BaseModel):
     dataset_id: str = Field(max_length=500)
     question: str = Field(min_length=1, max_length=2000)
     download_url: str | None = Field(default=None, max_length=2000)
+    dataset_title: str = Field(default="", max_length=500)
+    dataset_description: str = Field(default="", max_length=5000)
 
 
 class UploadResponse(BaseModel):
@@ -18,6 +20,7 @@ class UploadResponse(BaseModel):
     summary_stats: dict = {}
     data_quality: dict = {}
     charts: list[dict] = []
+    chart_code: str | None = None
 
 
 class AddDatasetRequest(BaseModel):
@@ -35,6 +38,7 @@ class StartResponse(BaseModel):
     summary_stats: dict = {}
     data_quality: dict = {}
     charts: list[dict] = []
+    chart_code: str | None = None
 
 
 class AskRequest(BaseModel):

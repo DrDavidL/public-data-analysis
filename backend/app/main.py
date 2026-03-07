@@ -6,16 +6,17 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routers import admin, analysis, auth, datasets
-from app.services import allowlist, user_store
+from app.routers import admin, analysis, auth, datasets, sessions
+from app.services import allowlist, session_store, user_store
 
 app = FastAPI(title="Public Data Analysis", version="0.1.0")
 
 # Seed runtime allowlist from config
 allowlist.init(settings.allowed_emails)
 
-# Initialize persistent user store
+# Initialize persistent stores
 user_store.init(settings.azure_storage_connection_string)
+session_store.init(settings.azure_storage_connection_string)
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,6 +30,7 @@ app.include_router(auth.router)
 app.include_router(datasets.router)
 app.include_router(analysis.router)
 app.include_router(admin.router)
+app.include_router(sessions.router)
 
 
 @app.get("/api/health")

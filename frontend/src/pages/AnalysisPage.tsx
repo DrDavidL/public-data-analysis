@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
-import { analysisApi, type AnalysisResponse, type TableInfo, type DataQualityReport as DQReport } from "../api/client";
+import { analysisApi, sessionsApi, type AnalysisResponse, type TableInfo, type DataQualityReport as DQReport } from "../api/client";
 import PlotlyChart from "../components/PlotlyChart";
 import ChatPanel from "../components/ChatPanel";
 import ReplPanel from "../components/ReplPanel";
 import DatasetSidebar from "../components/DatasetSidebar";
 import DataQualityReport from "../components/DataQualityReport";
+import SessionHistory from "../components/SessionHistory";
 
 interface Message {
   role: "user" | "assistant";
@@ -17,6 +18,11 @@ interface Message {
   suggestions?: string[];
 }
 
+interface ChartWithCode {
+  spec: Record<string, unknown>;
+  sourceCode?: string;
+}
+
 interface LocationState {
   question: string;
   startResponse: {
@@ -26,10 +32,12 @@ interface LocationState {
     row_count: number;
     data_quality?: DQReport;
     charts: Record<string, unknown>[];
+    chart_code?: string | null;
   };
   datasetTitle: string;
   datasetDescription?: string;
   downloadUrl?: string | null;
+  restoredChatHistory?: { role: string; content: string; code_executed?: string; sql_executed?: string }[];
 }
 
 export default function AnalysisPage() {
@@ -38,8 +46,11 @@ export default function AnalysisPage() {
   const navigate = useNavigate();
   const state = location.state as LocationState | null;
 
-  const [charts, setCharts] = useState<Record<string, unknown>[]>(
-    state?.startResponse.charts || [],
+  const [charts, setCharts] = useState<ChartWithCode[]>(
+    () => (state?.startResponse.charts || []).map((spec) => ({
+      spec,
+      sourceCode: state?.startResponse.chart_code || undefined,
+    })),
   );
   const [messages, setMessages] = useState<Message[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
@@ -63,17 +74,28 @@ export default function AnalysisPage() {
         state.startResponse.charts.length > 0
           ? " I've generated some preliminary charts."
           : "";
-      setMessages([
-        {
-          role: "assistant",
-          content: `Loaded "${state.datasetTitle}" (${state.startResponse.row_count.toLocaleString()} rows, ${state.startResponse.columns.length} columns).${chartsNote} Ask me anything about this data!${desc}`,
-          suggestions: [
-            "Summarize the key trends",
-            "Show me the distribution of values",
-            "What are the top 10 entries?",
-          ],
-        },
-      ]);
+      const welcomeMsg: Message = {
+        role: "assistant",
+        content: `Loaded "${state.datasetTitle}" (${state.startResponse.row_count.toLocaleString()} rows, ${state.startResponse.columns.length} columns).${chartsNote} Ask me anything about this data!${desc}`,
+        suggestions: [
+          "Summarize the key trends",
+          "Show me the distribution of values",
+          "What are the top 10 entries?",
+        ],
+      };
+
+      // Restore prior chat history if reloading a saved session
+      if (state.restoredChatHistory && state.restoredChatHistory.length > 0) {
+        const restored: Message[] = state.restoredChatHistory.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          codeExecuted: m.code_executed || undefined,
+          sqlExecuted: m.sql_executed || undefined,
+        }));
+        setMessages([welcomeMsg, ...restored]);
+      } else {
+        setMessages([welcomeMsg]);
+      }
     }
   }, [sessionId, state]);
 
@@ -105,7 +127,11 @@ export default function AnalysisPage() {
 
         // Add new charts to the main chart area
         if (r.charts && r.charts.length > 0) {
-          setCharts((prev) => [...prev, ...r.charts!]);
+          const code = r.code_executed || r.sql_executed || undefined;
+          setCharts((prev) => [
+            ...prev,
+            ...r.charts!.map((spec) => ({ spec, sourceCode: code })),
+          ]);
         }
 
         return r;
@@ -125,7 +151,10 @@ export default function AnalysisPage() {
         // Add any figures to chart area
         const figs = res.data.figures as Record<string, unknown>[] | undefined;
         if (figs && figs.length > 0) {
-          setCharts((prev) => [...prev, ...figs]);
+          setCharts((prev) => [
+            ...prev,
+            ...figs.map((spec) => ({ spec, sourceCode: code })),
+          ]);
         }
         return res.data;
       } finally {
@@ -137,6 +166,41 @@ export default function AnalysisPage() {
 
   const handleAddDataset = () => {
     navigate("/search");
+  };
+
+  const [reloading, setReloading] = useState(false);
+  const handleReload = async (savedSessionId: string) => {
+    setReloading(true);
+    try {
+      const res = await sessionsApi.reload(savedSessionId);
+      const r = res.data;
+      navigate(`/analysis/${r.session_id}`, {
+        state: {
+          question: r.chat_history?.[0]?.content || "",
+          startResponse: {
+            session_id: r.session_id,
+            table_name: r.table_name,
+            columns: r.columns,
+            row_count: r.row_count,
+            data_quality: r.data_quality,
+            charts: r.charts,
+            chart_code: r.chart_code,
+          },
+          datasetTitle: r.dataset_title,
+          datasetDescription: r.dataset_description,
+          downloadUrl: r.download_url || null,
+          restoredChatHistory: r.chat_history,
+        },
+      });
+    } catch {
+      // Show error in chat
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: "Failed to reload session. The dataset may no longer be available.",
+      }]);
+    } finally {
+      setReloading(false);
+    }
   };
 
   return (
@@ -157,7 +221,10 @@ export default function AnalysisPage() {
       </header>
 
       <div style={styles.body}>
-        <DatasetSidebar tables={tables} onAddDataset={handleAddDataset} />
+        <div style={styles.leftSidebar}>
+          <SessionHistory onReload={handleReload} loading={reloading} />
+          <DatasetSidebar tables={tables} onAddDataset={handleAddDataset} />
+        </div>
 
         <div style={styles.mainArea}>
           {/* Charts area */}
@@ -183,7 +250,7 @@ export default function AnalysisPage() {
             ) : (
               <div style={styles.chartsGrid}>
                 {charts.map((chart, i) => (
-                  <PlotlyChart key={i} spec={chart} />
+                  <PlotlyChart key={i} spec={chart.spec} sourceCode={chart.sourceCode} />
                 ))}
               </div>
             )}
@@ -237,6 +304,12 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   body: { flex: 1, display: "flex", overflow: "hidden" },
+  leftSidebar: {
+    display: "flex",
+    flexDirection: "column",
+    flexShrink: 0,
+    overflow: "hidden",
+  },
   mainArea: {
     flex: 1,
     display: "flex",

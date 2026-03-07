@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { datasetApi, analysisApi, type DatasetResult } from "../api/client";
+import { datasetApi, analysisApi, sessionsApi, type DatasetResult } from "../api/client";
 import DatasetCard from "../components/DatasetCard";
+import SessionHistory from "../components/SessionHistory";
 import UploadModal from "../components/UploadModal";
 import { useAuth } from "../hooks/useAuth";
 
@@ -71,6 +72,7 @@ export default function SearchPage() {
   const [starting, setStarting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const [error, setError] = useState("");
   const [searchDone, setSearchDone] = useState(false);
   const { logout } = useAuth();
@@ -107,6 +109,8 @@ export default function SearchPage() {
         dataset_id: dataset.id,
         question: question.trim(),
         download_url: dataset.download_url,
+        dataset_title: dataset.title,
+        dataset_description: dataset.ai_description || dataset.description || "",
       });
       navigate(`/analysis/${res.data.session_id}`, {
         state: {
@@ -173,6 +177,37 @@ export default function SearchPage() {
     }
   };
 
+  const handleReload = async (savedSessionId: string) => {
+    setReloading(true);
+    setError("");
+    try {
+      const res = await sessionsApi.reload(savedSessionId);
+      const r = res.data;
+      navigate(`/analysis/${r.session_id}`, {
+        state: {
+          question: r.chat_history?.[0]?.content || "",
+          startResponse: {
+            session_id: r.session_id,
+            table_name: r.table_name,
+            columns: r.columns,
+            row_count: r.row_count,
+            data_quality: r.data_quality,
+            charts: r.charts,
+            chart_code: r.chart_code,
+          },
+          datasetTitle: r.dataset_title,
+          datasetDescription: r.dataset_description,
+          downloadUrl: r.download_url || null,
+          restoredChatHistory: r.chat_history,
+        },
+      });
+    } catch {
+      setError("Failed to reload session. The dataset may no longer be available.");
+    } finally {
+      setReloading(false);
+    }
+  };
+
   return (
     <div style={styles.page}>
       <header style={styles.header}>
@@ -196,6 +231,18 @@ export default function SearchPage() {
         loading={uploading}
         loadingStatus={uploadStatus}
       />
+
+      {reloading && (
+        <div style={styles.loading}>
+          <div style={styles.spinner} />
+          <span>Reloading session...</span>
+        </div>
+      )}
+
+      <div style={styles.pageBody}>
+        <aside style={styles.sidebar}>
+          <SessionHistory onReload={handleReload} loading={reloading} />
+        </aside>
 
       <main style={styles.main}>
         <h2 style={styles.heading}>
@@ -264,12 +311,21 @@ export default function SearchPage() {
           </div>
         )}
       </main>
+      </div>
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  page: { minHeight: "100vh", background: "#f0f2f5" },
+  page: { minHeight: "100vh", background: "#f0f2f5", display: "flex", flexDirection: "column" },
+  pageBody: { flex: 1, display: "flex" },
+  sidebar: {
+    width: 240,
+    flexShrink: 0,
+    background: "#fff",
+    borderRight: "1px solid #e5e7eb",
+    overflowY: "auto",
+  },
   header: {
     display: "flex",
     justifyContent: "space-between",
@@ -298,7 +354,7 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     fontSize: "0.85rem",
   },
-  main: { maxWidth: 900, margin: "0 auto", padding: "2rem 1rem" },
+  main: { flex: 1, maxWidth: 900, margin: "0 auto", padding: "2rem 1rem" },
   heading: { fontSize: "1.4rem", fontWeight: 600, marginBottom: "1rem" },
   form: { display: "flex", flexDirection: "column", gap: "0.75rem" },
   textarea: {
