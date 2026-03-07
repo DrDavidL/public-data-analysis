@@ -176,17 +176,21 @@ def _save_session_metadata(session: Session) -> None:
             except Exception:  # noqa: S110
                 pass
 
-        save_session(session.owner, session.id, {
-            "dataset_title": session.dataset_title,
-            "dataset_description": session.dataset_description,
-            "dataset_source": session.dataset_source,
-            "dataset_id": session.dataset_id,
-            "download_url": session.download_url,
-            "original_question": session.question,
-            "table_metadata": table_metadata,
-            "chart_code": session.chart_code,
-            "chat_history": session.chat_history[-50:],
-        })
+        save_session(
+            session.owner,
+            session.id,
+            {
+                "dataset_title": session.dataset_title,
+                "dataset_description": session.dataset_description,
+                "dataset_source": session.dataset_source,
+                "dataset_id": session.dataset_id,
+                "download_url": session.download_url,
+                "original_question": session.question,
+                "table_metadata": table_metadata,
+                "chart_code": session.chart_code,
+                "chat_history": session.chat_history[-50:],
+            },
+        )
     except Exception:
         logger.exception("Failed to save session metadata")
 

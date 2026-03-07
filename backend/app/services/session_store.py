@@ -65,34 +65,38 @@ def list_sessions(email: str) -> list[dict]:
         entities = _table_client.query_entities(f"PartitionKey eq '{email}'")
         results = []
         for e in entities:
-            results.append({
-                "session_id": e["RowKey"],
-                "dataset_title": e.get("dataset_title", ""),
-                "dataset_description": e.get("dataset_description", ""),
-                "dataset_source": e.get("dataset_source", ""),
-                "dataset_id": e.get("dataset_id", ""),
-                "download_url": e.get("download_url", ""),
-                "original_question": e.get("original_question", ""),
-                "created_at": e.get("created_at", ""),
-                "updated_at": e.get("updated_at", ""),
-            })
+            results.append(
+                {
+                    "session_id": e["RowKey"],
+                    "dataset_title": e.get("dataset_title", ""),
+                    "dataset_description": e.get("dataset_description", ""),
+                    "dataset_source": e.get("dataset_source", ""),
+                    "dataset_id": e.get("dataset_id", ""),
+                    "download_url": e.get("download_url", ""),
+                    "original_question": e.get("original_question", ""),
+                    "created_at": e.get("created_at", ""),
+                    "updated_at": e.get("updated_at", ""),
+                }
+            )
         results.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
         return results
 
     user_sessions = _sessions.get(email, {})
     results = []
     for sid, data in user_sessions.items():
-        results.append({
-            "session_id": sid,
-            "dataset_title": data.get("dataset_title", ""),
-            "dataset_description": data.get("dataset_description", ""),
-            "dataset_source": data.get("dataset_source", ""),
-            "dataset_id": data.get("dataset_id", ""),
-            "download_url": data.get("download_url", ""),
-            "original_question": data.get("original_question", ""),
-            "created_at": data.get("created_at", ""),
-            "updated_at": data.get("updated_at", ""),
-        })
+        results.append(
+            {
+                "session_id": sid,
+                "dataset_title": data.get("dataset_title", ""),
+                "dataset_description": data.get("dataset_description", ""),
+                "dataset_source": data.get("dataset_source", ""),
+                "dataset_id": data.get("dataset_id", ""),
+                "download_url": data.get("download_url", ""),
+                "original_question": data.get("original_question", ""),
+                "created_at": data.get("created_at", ""),
+                "updated_at": data.get("updated_at", ""),
+            }
+        )
     results.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
     return results
 
