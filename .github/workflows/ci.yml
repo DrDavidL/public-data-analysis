@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # TODO: REVERT before merging to main — remove feature branch
+    branches: [main, feature/session-history-code-viewer]
   pull_request:
     branches: [main]
 
