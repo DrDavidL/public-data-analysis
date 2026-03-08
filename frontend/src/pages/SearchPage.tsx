@@ -23,18 +23,90 @@ const SEARCH_STEPS = [
 ];
 
 const SOURCES = [
-  { name: "data.gov", color: "#0071bc" },
-  { name: "World Bank", color: "#009fda" },
-  { name: "Kaggle", color: "#20beff" },
-  { name: "HuggingFace", color: "#ff9d00" },
-  { name: "SDOH Place", color: "#4caf50" },
-  { name: "CMS", color: "#d63384" },
-  { name: "Harvard Dataverse", color: "#a51c30" },
-  { name: "HUD", color: "#008542" },
-  { name: "BLS", color: "#003366" },
-  { name: "FRED", color: "#1a5276" },
-  { name: "CMAP", color: "#6c3483" },
-  { name: "Census", color: "#b7410e" },
+  {
+    name: "data.gov",
+    key: "data.gov",
+    color: "#0071bc",
+    description: "The US government's open data portal with over 300,000 datasets spanning federal, state, and local government agencies. Covers topics like climate, education, finance, health, and public safety.",
+    url: "https://data.gov",
+  },
+  {
+    name: "World Bank",
+    key: "worldbank",
+    color: "#009fda",
+    description: "Global development data from the World Bank covering 200+ countries. Includes economic indicators, poverty metrics, health statistics, education data, and environmental indicators.",
+    url: "https://data.worldbank.org",
+  },
+  {
+    name: "Kaggle",
+    key: "kaggle",
+    color: "#20beff",
+    description: "Community-driven data science platform with thousands of public datasets. Covers machine learning, social science, business analytics, and more. Datasets are uploaded by users and organizations.",
+    url: "https://www.kaggle.com/datasets",
+  },
+  {
+    name: "HuggingFace",
+    key: "huggingface",
+    color: "#ff9d00",
+    description: "AI/ML community hub hosting 100,000+ datasets for natural language processing, computer vision, audio, and tabular data. Popular for research and model training datasets.",
+    url: "https://huggingface.co/datasets",
+  },
+  {
+    name: "SDOH Place",
+    key: "sdohplace",
+    color: "#4caf50",
+    description: "Social Determinants of Health data platform providing place-based data on factors affecting health outcomes — housing, food access, transportation, education, and economic stability at the community level.",
+    url: "https://sdohplace.org",
+  },
+  {
+    name: "CMS",
+    key: "cms",
+    color: "#d63384",
+    description: "Centers for Medicare & Medicaid Services open data. Includes Medicare claims, provider utilization, hospital quality measures, prescription drug costs, and Medicaid enrollment data.",
+    url: "https://data.cms.gov",
+  },
+  {
+    name: "Harvard Dataverse",
+    key: "harvard_dataverse",
+    color: "#a51c30",
+    description: "Open-access research data repository hosted by Harvard University. Contains datasets from academic research across all disciplines — social sciences, natural sciences, medicine, and humanities.",
+    url: "https://dataverse.harvard.edu",
+  },
+  {
+    name: "HUD",
+    key: "hud",
+    color: "#008542",
+    description: "US Department of Housing and Urban Development open data. Includes Fair Market Rents, housing affordability, homelessness statistics, public housing data, and community development grants.",
+    url: "https://www.huduser.gov/portal/datasets",
+  },
+  {
+    name: "BLS",
+    key: "bls",
+    color: "#003366",
+    description: "Bureau of Labor Statistics data on employment, unemployment, wages, inflation (CPI), productivity, workplace injuries, and consumer spending for the United States.",
+    url: "https://www.bls.gov/data/",
+  },
+  {
+    name: "FRED",
+    key: "fred",
+    color: "#1a5276",
+    description: "Federal Reserve Economic Data — 800,000+ time series from the St. Louis Fed. Covers interest rates, GDP, employment, exchange rates, monetary aggregates, and other macroeconomic indicators.",
+    url: "https://fred.stlouisfed.org",
+  },
+  {
+    name: "CMAP",
+    key: "cmap",
+    color: "#6c3483",
+    description: "Chicago Metropolitan Agency for Planning data hub. Regional data for the Chicago metro area covering transportation, land use, demographics, economic development, and environmental planning.",
+    url: "https://datahub.cmap.illinois.gov",
+  },
+  {
+    name: "Census",
+    key: "census",
+    color: "#b7410e",
+    description: "US Census Bureau data including the American Community Survey, decennial census, population estimates, economic census, and demographic surveys covering the entire United States.",
+    url: "https://data.census.gov",
+  },
 ];
 
 const LOADING_STEPS = [
@@ -75,6 +147,10 @@ export default function SearchPage() {
   const [reloading, setReloading] = useState(false);
   const [error, setError] = useState("");
   const [searchDone, setSearchDone] = useState(false);
+  const [selectedSources, setSelectedSources] = useState<Set<string>>(
+    () => new Set(SOURCES.map((s) => s.key)),
+  );
+  const [infoSource, setInfoSource] = useState<typeof SOURCES[number] | null>(null);
   const { logout } = useAuth();
   const navigate = useNavigate();
 
@@ -90,7 +166,10 @@ export default function SearchPage() {
     setResults([]);
     setSearchDone(false);
     try {
-      const res = await datasetApi.search(question.trim());
+      const sourcesArg = selectedSources.size === SOURCES.length
+        ? undefined
+        : [...selectedSources];
+      const res = await datasetApi.search(question.trim(), sourcesArg);
       setResults(res.data);
       setSearchDone(true);
     } catch {
@@ -258,23 +337,96 @@ export default function SearchPage() {
           />
           <button
             type="submit"
-            disabled={searching || !question.trim()}
+            disabled={searching || !question.trim() || selectedSources.size === 0}
             style={styles.searchBtn}
           >
             {searching ? searchStatus : "Search Datasets"}
           </button>
         </form>
-        <div style={styles.sourcesStrip}>
-          <span style={styles.sourcesLabel}>Searches across</span>
-          {SOURCES.map((s) => (
-            <span
-              key={s.name}
-              style={{ ...styles.sourceChip, background: s.color }}
+        <div style={styles.sourcesPanel}>
+          <div style={styles.sourcesPanelHeader}>
+            <span style={styles.sourcesLabel}>Data sources</span>
+            <button
+              type="button"
+              style={styles.selectAllBtn}
+              onClick={() => {
+                if (selectedSources.size === SOURCES.length) {
+                  setSelectedSources(new Set());
+                } else {
+                  setSelectedSources(new Set(SOURCES.map((s) => s.key)));
+                }
+              }}
             >
-              {s.name}
-            </span>
-          ))}
+              {selectedSources.size === SOURCES.length ? "Deselect all" : "Select all"}
+            </button>
+          </div>
+          <div style={styles.sourcesGrid}>
+            {SOURCES.map((s) => (
+              <label key={s.key} style={styles.sourceItem}>
+                <input
+                  type="checkbox"
+                  checked={selectedSources.has(s.key)}
+                  onChange={() => {
+                    setSelectedSources((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(s.key)) next.delete(s.key);
+                      else next.add(s.key);
+                      return next;
+                    });
+                  }}
+                  style={styles.sourceCheckbox}
+                />
+                <span
+                  style={{
+                    ...styles.sourceChip,
+                    background: selectedSources.has(s.key) ? s.color : "#ccc",
+                  }}
+                >
+                  {s.name}
+                </span>
+                <button
+                  type="button"
+                  style={styles.infoBtn}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setInfoSource(s);
+                  }}
+                  title={`About ${s.name}`}
+                >
+                  i
+                </button>
+              </label>
+            ))}
+          </div>
         </div>
+
+        {infoSource && (
+          <div style={styles.modalOverlay} onClick={() => setInfoSource(null)}>
+            <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+              <div style={styles.modalHeader}>
+                <span style={{ ...styles.sourceChip, background: infoSource.color, fontSize: "0.85rem", padding: "3px 10px" }}>
+                  {infoSource.name}
+                </span>
+                <button
+                  onClick={() => setInfoSource(null)}
+                  style={styles.modalClose}
+                >
+                  X
+                </button>
+              </div>
+              <p style={styles.modalText}>{infoSource.description}</p>
+              <a
+                href={infoSource.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={styles.modalLink}
+              >
+                Visit {infoSource.name}
+              </a>
+            </div>
+          </div>
+        )}
 
         {error && <p style={styles.error}>{error}</p>}
 
@@ -376,17 +528,49 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     alignSelf: "flex-start",
   },
-  sourcesStrip: {
+  sourcesPanel: {
+    marginTop: "0.75rem",
+    padding: "0.6rem 0.75rem",
+    background: "#fff",
+    borderRadius: "8px",
+    border: "1px solid #e5e7eb",
+  },
+  sourcesPanelHeader: {
     display: "flex",
-    flexWrap: "wrap",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: "0.4rem",
-    marginTop: "0.6rem",
+    marginBottom: "0.5rem",
   },
   sourcesLabel: {
-    fontSize: "0.78rem",
-    color: "#888",
-    marginRight: "0.15rem",
+    fontSize: "0.8rem",
+    color: "#666",
+    fontWeight: 600,
+  },
+  selectAllBtn: {
+    background: "none",
+    border: "none",
+    color: "#2563eb",
+    fontSize: "0.75rem",
+    cursor: "pointer",
+    fontWeight: 500,
+    padding: 0,
+  },
+  sourcesGrid: {
+    display: "flex",
+    flexWrap: "wrap" as const,
+    gap: "0.4rem",
+  },
+  sourceItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.25rem",
+    cursor: "pointer",
+    userSelect: "none" as const,
+  },
+  sourceCheckbox: {
+    margin: 0,
+    cursor: "pointer",
+    accentColor: "#2563eb",
   },
   sourceChip: {
     color: "#fff",
@@ -394,7 +578,70 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "4px",
     fontSize: "0.7rem",
     fontWeight: 600,
-    opacity: 0.85,
+    transition: "background 0.15s",
+  },
+  infoBtn: {
+    background: "none",
+    border: "1px solid #d1d5db",
+    borderRadius: "50%",
+    width: 16,
+    height: 16,
+    fontSize: "0.6rem",
+    fontWeight: 700,
+    color: "#888",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+    lineHeight: 1,
+    flexShrink: 0,
+  },
+  modalOverlay: {
+    position: "fixed" as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: "rgba(0,0,0,0.4)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1000,
+  },
+  modalContent: {
+    background: "#fff",
+    borderRadius: "12px",
+    padding: "1.5rem",
+    maxWidth: 420,
+    width: "90%",
+    boxShadow: "0 8px 30px rgba(0,0,0,0.2)",
+  },
+  modalHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "1rem",
+  },
+  modalClose: {
+    background: "none",
+    border: "none",
+    fontSize: "1rem",
+    cursor: "pointer",
+    color: "#666",
+    fontWeight: 700,
+  },
+  modalText: {
+    fontSize: "0.9rem",
+    lineHeight: 1.5,
+    color: "#374151",
+    margin: "0 0 1rem 0",
+  },
+  modalLink: {
+    fontSize: "0.85rem",
+    color: "#2563eb",
+    textDecoration: "none",
+    fontWeight: 500,
   },
   error: { color: "#dc2626", marginTop: "0.5rem" },
   loading: {

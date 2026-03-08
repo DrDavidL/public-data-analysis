@@ -113,8 +113,8 @@ export const authApi = {
 };
 
 export const datasetApi = {
-  search: (question: string) =>
-    api.post<DatasetResult[]>("/datasets/search", { question }),
+  search: (question: string, sources?: string[]) =>
+    api.post<DatasetResult[]>("/datasets/search", { question, sources }),
 };
 
 export interface UploadResponse {
