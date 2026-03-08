@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 SEARCH_URL = "https://ourworldindata.org/api/search"
 TIMEOUT = 15.0
+DOWNLOAD_TIMEOUT = 60.0
 
 
 class OWIDSource:
@@ -84,7 +85,7 @@ class OWIDSource:
         dest = dest_dir / f"{dataset_id}.csv"
 
         try:
-            async with httpx.AsyncClient(timeout=TIMEOUT, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=DOWNLOAD_TIMEOUT, follow_redirects=True) as client:
                 resp = await client.get(url)
                 resp.raise_for_status()
 

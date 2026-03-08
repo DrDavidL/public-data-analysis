@@ -19,7 +19,7 @@ def load_dataset(conn: duckdb.DuckDBPyConnection, file_path: Path, table_name: s
     # Escape single quotes in file path to prevent SQL injection
     safe_path = str(file_path).replace("'", "''")
 
-    if suffix == ".csv":
+    if suffix in (".csv", ".tsv", ".tab"):
         conn.execute(
             f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM read_csv_auto('{safe_path}')"
         )

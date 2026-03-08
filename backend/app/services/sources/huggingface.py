@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://huggingface.co/api/datasets"
 _TIMEOUT = httpx.Timeout(15.0)
+_DOWNLOAD_TIMEOUT = httpx.Timeout(60.0)
 
 
 class HuggingFaceSource:
@@ -124,7 +125,9 @@ class HuggingFaceSource:
         """
         parquet_url = self._parquet_api_url(dataset_id)
         try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+            async with httpx.AsyncClient(
+                timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True
+            ) as client:
                 # First, resolve the parquet endpoint to get actual file URLs
                 resp = await client.get(parquet_url)
                 resp.raise_for_status()

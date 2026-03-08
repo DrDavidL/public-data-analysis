@@ -148,6 +148,18 @@ async def _download_file(url: str, dest_dir: Path, dataset_id: str) -> Path:
                 if not fname or "." not in fname:
                     fname = f"{sanitize_table_name(dataset_id)}.csv"
 
+            # Infer extension from content-type if filename has no valid data extension
+            known_exts = {".csv", ".json", ".jsonl", ".parquet", ".xlsx", ".xls"}
+            fname_ext = Path(fname).suffix.lower()
+            if fname_ext not in known_exts:
+                ct = resp.headers.get("content-type", "")
+                if "json" in ct:
+                    fname = f"{sanitize_table_name(dataset_id)}.json"
+                elif "csv" in ct or "text/plain" in ct:
+                    fname = f"{sanitize_table_name(dataset_id)}.csv"
+                else:
+                    fname = f"{sanitize_table_name(dataset_id)}.csv"
+
             fname = _sanitize_filename(fname)
             dest = dest_dir / fname
 

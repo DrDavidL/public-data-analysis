@@ -151,7 +151,7 @@ class OECDSource:
         params: dict[str, str] = {"startPeriod": "2014", "dimensionAtObservation": "AllDimensions"}
 
         try:
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
                 resp = await client.get(url, headers=headers, params=params)
                 resp.raise_for_status()
 
