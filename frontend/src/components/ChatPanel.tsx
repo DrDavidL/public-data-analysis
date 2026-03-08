@@ -1,12 +1,9 @@
 import { useState, type FormEvent } from "react";
 import type { AnalysisResponse } from "../api/client";
-import PlotlyChart from "./PlotlyChart";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
-  charts?: Record<string, unknown>[];
-  dataTable?: { data: Record<string, unknown>[]; columns: string[] };
   sqlExecuted?: string;
   codeExecuted?: string;
   suggestions?: string[];
@@ -59,38 +56,6 @@ export default function ChatPanel({ messages, onAsk, loading }: Props) {
                 <summary>Python Code</summary>
                 <pre style={styles.code}>{msg.codeExecuted}</pre>
               </details>
-            )}
-            {msg.charts?.map((chart, ci) => (
-              <PlotlyChart key={ci} spec={chart} />
-            ))}
-            {msg.dataTable && msg.dataTable.data.length > 0 && (
-              <div style={styles.tableWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      {msg.dataTable.columns.map((col) => (
-                        <th key={col} style={styles.th}>{col}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {msg.dataTable.data.slice(0, 20).map((row, ri) => (
-                      <tr key={ri}>
-                        {msg.dataTable!.columns.map((col) => (
-                          <td key={col} style={styles.td}>
-                            {String(row[col] ?? "")}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {msg.dataTable.data.length > 20 && (
-                  <p style={styles.truncated}>
-                    Showing 20 of {msg.dataTable.data.length} rows
-                  </p>
-                )}
-              </div>
             )}
             {msg.suggestions && msg.suggestions.length > 0 && (
               <div style={styles.suggestions}>
@@ -161,21 +126,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "0.8rem",
     marginTop: "0.25rem",
   },
-  tableWrap: { marginTop: "0.5rem", overflowX: "auto" },
-  table: {
-    borderCollapse: "collapse",
-    fontSize: "0.8rem",
-    width: "100%",
-  },
-  th: {
-    background: "#f8fafc",
-    padding: "4px 8px",
-    border: "1px solid #e2e8f0",
-    textAlign: "left",
-    fontWeight: 600,
-  },
-  td: { padding: "4px 8px", border: "1px solid #e2e8f0" },
-  truncated: { fontSize: "0.75rem", color: "#888", marginTop: "0.25rem" },
   suggestions: {
     display: "flex",
     flexWrap: "wrap",
