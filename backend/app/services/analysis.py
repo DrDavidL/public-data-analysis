@@ -267,15 +267,17 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
             file_path = await _download_file(req.download_url, session.temp_dir, req.dataset_id)
 
         if not file_path:
-            raise ValueError(f"Could not download dataset {req.dataset_id}")
+            raise ValueError(f"Could not download dataset {req.dataset_id} from {req.source}")
 
         # Load into DuckDB
+        logger.info("Loading %s (%s bytes) into DuckDB", file_path.name, file_path.stat().st_size)
         table_name = load_dataset(session.conn, file_path, req.dataset_id)
         session.tables.append(table_name)
 
         # Get metadata
         columns = get_schema(session.conn, table_name)
         row_count = session.conn.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+        logger.info("Loaded %s: %d rows, %d columns", table_name, row_count, len(columns))
         stats = get_stats(session.conn, table_name)
 
         # Run data quality assessment

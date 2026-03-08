@@ -226,8 +226,11 @@ export default function SearchPage() {
           downloadUrl: dataset.download_url,
         },
       });
-    } catch {
-      setError("Failed to load dataset. Please try another.");
+    } catch (err: unknown) {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data
+          ?.detail;
+      setError(detail || "Failed to load dataset. Please try another.");
     } finally {
       setStarting(false);
     }
