@@ -170,6 +170,7 @@ export interface ReloadResponse {
   chat_history: { role: string; content: string; code_executed?: string; sql_executed?: string }[];
   dataset_title: string;
   dataset_description: string;
+  dataset_source: string;
   download_url: string;
 }
 

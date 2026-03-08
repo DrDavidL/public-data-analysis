@@ -12,3 +12,5 @@ frontend/dist/
 .DS_Store
 *.log
 tmp/
+/V-Dem-CY-FullOthers-v15_csv/*.csv
+/V-Dem-CY-FullOthers-v15_csv/*.pdf

@@ -20,6 +20,9 @@ RUN cd backend && uv sync --frozen --no-dev
 # Copy backend source
 COPY backend/ ./backend/
 
+# Copy bundled datasets (CSV files are gitignored but present in deploy builds)
+COPY V-Dem-CY-FullOthers-v15_csv/ ./V-Dem-CY-FullOthers-v15_csv/
+
 # Copy built frontend
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 

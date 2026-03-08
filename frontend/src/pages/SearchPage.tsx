@@ -19,6 +19,9 @@ const SEARCH_STEPS = [
   "Searching FRED...",
   "Searching CMAP Data Hub...",
   "Searching Census.gov...",
+  "Searching Our World in Data...",
+  "Searching OECD...",
+  "Searching V-Dem...",
   "Ranking results by relevance...",
 ];
 
@@ -106,6 +109,27 @@ const SOURCES = [
     color: "#b7410e",
     description: "US Census Bureau data including the American Community Survey, decennial census, population estimates, economic census, and demographic surveys covering the entire United States.",
     url: "https://data.census.gov",
+  },
+  {
+    name: "Our World in Data",
+    key: "owid",
+    color: "#286BBB",
+    description: "Research and data on global challenges — poverty, disease, hunger, climate change, war, inequality, and more. Curated datasets with clear visualizations covering 200+ countries and topics from health to energy to education.",
+    url: "https://ourworldindata.org",
+  },
+  {
+    name: "OECD",
+    key: "oecd",
+    color: "#0E47CB",
+    description: "Organisation for Economic Co-operation and Development data covering 38 member countries. Includes economic outlooks, trade statistics, education metrics, health spending, labor markets, productivity, and governance indicators.",
+    url: "https://data-explorer.oecd.org",
+  },
+  {
+    name: "V-Dem",
+    key: "vdem",
+    color: "#8B1A1A",
+    description: "Varieties of Democracy (V-Dem) v15 dataset with 500+ democracy indicators for 202 countries from 1789 to 2024. Covers electoral, liberal, participatory, deliberative, and egalitarian democracy, plus corruption, civil liberties, media freedom, and gender equality. CC-BY-SA licensed.",
+    url: "https://v-dem.net",
   },
 ];
 
@@ -198,6 +222,7 @@ export default function SearchPage() {
           datasetTitle: dataset.title,
           datasetDescription:
             dataset.ai_description || dataset.description || "",
+          datasetSource: dataset.source,
           downloadUrl: dataset.download_url,
         },
       });
@@ -220,6 +245,7 @@ export default function SearchPage() {
           startResponse: res.data,
           datasetTitle: file.name,
           datasetDescription: `Uploaded file: ${file.name}`,
+          datasetSource: "upload",
         },
       });
     } catch {
@@ -246,6 +272,7 @@ export default function SearchPage() {
           startResponse: res.data,
           datasetTitle: name,
           datasetDescription: `Sample dataset: ${name}`,
+          datasetSource: "upload",
           downloadUrl: url,
         },
       });
@@ -276,6 +303,7 @@ export default function SearchPage() {
           },
           datasetTitle: r.dataset_title,
           datasetDescription: r.dataset_description,
+          datasetSource: r.dataset_source || "",
           downloadUrl: r.download_url || null,
           restoredChatHistory: r.chat_history,
         },

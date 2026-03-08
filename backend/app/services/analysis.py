@@ -77,6 +77,11 @@ ALLOWED_DOWNLOAD_DOMAINS = {
     "services.arcgisonline.com",
     # Census
     "api.census.gov",
+    # OWID
+    "ourworldindata.org",
+    "catalog.ourworldindata.org",
+    # OECD
+    "sdmx.oecd.org",
 }
 
 
@@ -210,7 +215,10 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
         from app.services.sources.hud import HUDSource
         from app.services.sources.huggingface import HuggingFaceSource
         from app.services.sources.kaggle_source import KaggleSource
+        from app.services.sources.oecd import OECDSource
+        from app.services.sources.owid import OWIDSource
         from app.services.sources.sdohplace import SDOHPlaceSource
+        from app.services.sources.vdem import VDemSource
         from app.services.sources.worldbank import WorldBankSource
 
         source_adapters = {
@@ -226,6 +234,9 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
             "fred": FREDSource(),
             "cmap": CMAPSource(),
             "census": CensusSource(),
+            "owid": OWIDSource(),
+            "oecd": OECDSource(),
+            "vdem": VDemSource(),
         }
         adapter = source_adapters.get(req.source)
 
@@ -712,7 +723,10 @@ async def reload_session(saved: dict, owner: str) -> dict:
         from app.services.sources.hud import HUDSource
         from app.services.sources.huggingface import HuggingFaceSource
         from app.services.sources.kaggle_source import KaggleSource
+        from app.services.sources.oecd import OECDSource
+        from app.services.sources.owid import OWIDSource
         from app.services.sources.sdohplace import SDOHPlaceSource
+        from app.services.sources.vdem import VDemSource
         from app.services.sources.worldbank import WorldBankSource
 
         source_adapters = {
@@ -728,6 +742,9 @@ async def reload_session(saved: dict, owner: str) -> dict:
             "fred": FREDSource(),
             "cmap": CMAPSource(),
             "census": CensusSource(),
+            "owid": OWIDSource(),
+            "oecd": OECDSource(),
+            "vdem": VDemSource(),
         }
         adapter = source_adapters.get(source)
 
@@ -785,6 +802,7 @@ async def reload_session(saved: dict, owner: str) -> dict:
             "chat_history": saved.get("chat_history", []),
             "dataset_title": saved.get("dataset_title", ""),
             "dataset_description": saved.get("dataset_description", ""),
+            "dataset_source": source,
             "download_url": download_url,
         }
     except Exception:

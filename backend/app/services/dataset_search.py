@@ -15,7 +15,10 @@ from app.services.sources.harvard_dataverse import HarvardDataverseSource
 from app.services.sources.hud import HUDSource
 from app.services.sources.huggingface import HuggingFaceSource
 from app.services.sources.kaggle_source import KaggleSource
+from app.services.sources.oecd import OECDSource
+from app.services.sources.owid import OWIDSource
 from app.services.sources.sdohplace import SDOHPlaceSource
+from app.services.sources.vdem import VDemSource
 from app.services.sources.worldbank import WorldBankSource
 
 logger = logging.getLogger(__name__)
@@ -33,6 +36,9 @@ ALL_SOURCES = [
     FREDSource(),
     CMAPSource(),
     CensusSource(),
+    OWIDSource(),
+    OECDSource(),
+    VDemSource(),
 ]
 
 _source_index = SourceIndex()

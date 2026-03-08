@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { analysisApi, sessionsApi, type AnalysisResponse, type TableInfo, type DataQualityReport as DQReport } from "../api/client";
-import PlotlyChart from "../components/PlotlyChart";
+import PlotlyChart, { type ChartMeta } from "../components/PlotlyChart";
 import ChatPanel from "../components/ChatPanel";
 import ReplPanel from "../components/ReplPanel";
 import DatasetSidebar from "../components/DatasetSidebar";
@@ -36,6 +36,7 @@ interface LocationState {
   };
   datasetTitle: string;
   datasetDescription?: string;
+  datasetSource?: string;
   downloadUrl?: string | null;
   restoredChatHistory?: { role: string; content: string; code_executed?: string; sql_executed?: string }[];
 }
@@ -57,6 +58,8 @@ export default function AnalysisPage() {
   const [askLoading, setAskLoading] = useState(false);
   const [replLoading, setReplLoading] = useState(false);
   const [showRepl, setShowRepl] = useState(false);
+  const [pinnedIndices, setPinnedIndices] = useState<Set<number>>(new Set());
+  const [dashboardView, setDashboardView] = useState(false);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -188,6 +191,7 @@ export default function AnalysisPage() {
           },
           datasetTitle: r.dataset_title,
           datasetDescription: r.dataset_description,
+          datasetSource: r.dataset_source || "",
           downloadUrl: r.download_url || null,
           restoredChatHistory: r.chat_history,
         },
@@ -212,6 +216,17 @@ export default function AnalysisPage() {
         <h1 style={styles.title}>
           {state?.datasetTitle || "Analysis"}
         </h1>
+        {pinnedIndices.size > 0 && (
+          <button
+            onClick={() => setDashboardView(!dashboardView)}
+            style={{
+              ...styles.replToggle,
+              background: dashboardView ? "#2563eb" : "#1e293b",
+            }}
+          >
+            {dashboardView ? "Exit Dashboard" : `Dashboard (${pinnedIndices.size})`}
+          </button>
+        )}
         <button
           onClick={() => setShowRepl(!showRepl)}
           style={styles.replToggle}
@@ -248,11 +263,43 @@ export default function AnalysisPage() {
                 Charts will appear here as you explore the data.
               </div>
             ) : (
-              <div style={styles.chartsGrid}>
-                {charts.map((chart, i) => (
-                  <PlotlyChart key={i} spec={chart.spec} sourceCode={chart.sourceCode} />
-                ))}
-              </div>
+              <>
+                {dashboardView && (
+                  <div style={styles.dashboardHeader}>
+                    <h2 style={styles.dashboardTitle}>Dashboard</h2>
+                    <span style={styles.dashboardSubtitle}>
+                      {pinnedIndices.size} pinned chart{pinnedIndices.size !== 1 ? "s" : ""} from &ldquo;{state?.datasetTitle}&rdquo;
+                    </span>
+                  </div>
+                )}
+                <div style={styles.chartsGrid}>
+                  {charts.map((chart, i) => {
+                    if (dashboardView && !pinnedIndices.has(i)) return null;
+                    const chartMeta: ChartMeta = {
+                      dataSource: state?.datasetSource,
+                      datasetTitle: state?.datasetTitle,
+                      rowCount: state?.startResponse.row_count,
+                    };
+                    return (
+                      <PlotlyChart
+                        key={i}
+                        spec={chart.spec}
+                        sourceCode={chart.sourceCode}
+                        meta={chartMeta}
+                        pinned={pinnedIndices.has(i)}
+                        onTogglePin={() => {
+                          setPinnedIndices((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(i)) next.delete(i);
+                            else next.add(i);
+                            return next;
+                          });
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
 
@@ -344,4 +391,19 @@ const styles: Record<string, React.CSSProperties> = {
     textDecoration: "none",
   },
   chatArea: { width: 400, flexShrink: 0 },
+  dashboardHeader: {
+    marginBottom: "1rem",
+    paddingBottom: "0.5rem",
+    borderBottom: "1px solid #e2e8f0",
+  },
+  dashboardTitle: {
+    fontSize: "1.1rem",
+    fontWeight: 700,
+    color: "#1e293b",
+    margin: "0 0 0.25rem 0",
+  },
+  dashboardSubtitle: {
+    fontSize: "0.8rem",
+    color: "#64748b",
+  },
 };
