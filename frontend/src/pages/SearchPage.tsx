@@ -18,6 +18,7 @@ const SEARCH_STEPS = [
   "Searching FRED...",
   "Searching CMAP Data Hub...",
   "Searching Census.gov...",
+  "Searching Chicago Health Atlas...",
   "Ranking results by relevance...",
 ];
 
@@ -34,6 +35,7 @@ const SOURCES = [
   { name: "FRED", color: "#1a5276" },
   { name: "CMAP", color: "#6c3483" },
   { name: "Census", color: "#b7410e" },
+  { name: "Chicago Health Atlas", color: "#1b9e77" },
 ];
 
 const LOADING_STEPS = [
@@ -185,6 +187,14 @@ export default function SearchPage() {
             Upload Data
           </button>
         </div>
+        <a
+          href="https://docs.google.com/forms/d/e/1FAIpQLSdM6pWM7cQ2dKRpwKABo918d60IYnujGUkgsmd1A5moCBj_gQ/viewform?usp=header"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={styles.feedbackLink}
+        >
+          Feedback
+        </a>
         <button onClick={logout} style={styles.logoutBtn}>Log out</button>
       </header>
 
@@ -289,6 +299,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "0.82rem",
     fontWeight: 600,
     color: "#374151",
+  },
+  feedbackLink: {
+    color: "#6b7280",
+    fontSize: "0.82rem",
+    textDecoration: "none",
   },
   logoutBtn: {
     background: "none",

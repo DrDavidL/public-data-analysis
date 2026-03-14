@@ -148,6 +148,14 @@ export default function AnalysisPage() {
         <h1 style={styles.title}>
           {state?.datasetTitle || "Analysis"}
         </h1>
+        <a
+          href="https://docs.google.com/forms/d/e/1FAIpQLSdM6pWM7cQ2dKRpwKABo918d60IYnujGUkgsmd1A5moCBj_gQ/viewform?usp=header"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={styles.feedbackLink}
+        >
+          Feedback
+        </a>
         <button
           onClick={() => setShowRepl(!showRepl)}
           style={styles.replToggle}
@@ -227,6 +235,11 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "0.85rem",
   },
   title: { flex: 1, fontSize: "1rem", fontWeight: 600 },
+  feedbackLink: {
+    color: "#6b7280",
+    fontSize: "0.82rem",
+    textDecoration: "none",
+  },
   replToggle: {
     padding: "0.3rem 0.7rem",
     background: "#1e293b",

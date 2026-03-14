@@ -13,6 +13,7 @@ const SOURCE_COLORS: Record<string, string> = {
   fred: "#1a5276",
   cmap: "#6c3483",
   census: "#b7410e",
+  chicago_health_atlas: "#1b9e77",
 };
 
 interface Props {

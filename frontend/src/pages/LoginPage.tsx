@@ -74,6 +74,14 @@ export default function LoginPage() {
             ? "Already have an account? Log in"
             : "Need an account? Register"}
         </button>
+        <a
+          href="https://docs.google.com/forms/d/e/1FAIpQLSdM6pWM7cQ2dKRpwKABo918d60IYnujGUkgsmd1A5moCBj_gQ/viewform?usp=header"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={styles.feedback}
+        >
+          Send Feedback
+        </a>
       </div>
     </div>
   );
@@ -122,5 +130,13 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     marginTop: "1rem",
     fontSize: "0.85rem",
+  },
+  feedback: {
+    display: "block",
+    textAlign: "center",
+    marginTop: "1rem",
+    color: "#6b7280",
+    fontSize: "0.82rem",
+    textDecoration: "none",
   },
 };
