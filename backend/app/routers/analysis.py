@@ -89,7 +89,16 @@ async def upload(
 
 @router.post("/start", response_model=StartResponse)
 async def start(body: StartRequest, email: str = Depends(get_current_user)) -> StartResponse:
-    return await start_analysis(body, owner=email)
+    try:
+        return await start_analysis(body, owner=email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("start_analysis failed for %s/%s", body.source, body.dataset_id)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to load dataset from {body.source}: {type(exc).__name__}",
+        ) from exc
 
 
 @router.post("/ask", response_model=AnalysisResponse)

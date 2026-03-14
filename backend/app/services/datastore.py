@@ -16,13 +16,35 @@ def sanitize_table_name(name: str) -> str:
 def load_dataset(conn: duckdb.DuckDBPyConnection, file_path: Path, table_name: str) -> str:
     table_name = sanitize_table_name(table_name)
     suffix = file_path.suffix.lower()
+
+    # Validate file has content and isn't an HTML error page
+    size = file_path.stat().st_size
+    if size == 0:
+        raise ValueError(f"Downloaded file is empty: {file_path.name}")
+    if suffix not in (".parquet", ".xlsx", ".xls"):
+        head = file_path.read_bytes()[:512]
+        if head.lstrip().lower().startswith((b"<!doctype", b"<html")):
+            raise ValueError(
+                f"Downloaded file appears to be an HTML error page, not data: {file_path.name}"
+            )
+
     # Escape single quotes in file path to prevent SQL injection
     safe_path = str(file_path).replace("'", "''")
 
-    if suffix == ".csv":
-        conn.execute(
-            f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM read_csv_auto('{safe_path}')"
-        )
+    if suffix in (".csv", ".tsv", ".tab"):
+        try:
+            conn.execute(
+                f"CREATE OR REPLACE TABLE {table_name} AS "
+                f"SELECT * FROM read_csv_auto('{safe_path}')"
+            )
+        except (duckdb.ConversionException, duckdb.InvalidInputException):
+            # Auto-detection can fail on messy CSVs (wrong types, undetected
+            # quoting, column-count mismatches).  Retry with permissive settings.
+            conn.execute(
+                f"CREATE OR REPLACE TABLE {table_name} AS "
+                f"SELECT * FROM read_csv_auto('{safe_path}', "
+                f"all_varchar=true, quote='\"', ignore_errors=true)"
+            )
     elif suffix == ".parquet":
         conn.execute(
             f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM read_parquet('{safe_path}')"
@@ -38,9 +60,17 @@ def load_dataset(conn: duckdb.DuckDBPyConnection, file_path: Path, table_name: s
         conn.unregister("_temp_df")
     else:
         # Try CSV as fallback
-        conn.execute(
-            f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM read_csv_auto('{safe_path}')"
-        )
+        try:
+            conn.execute(
+                f"CREATE OR REPLACE TABLE {table_name} AS "
+                f"SELECT * FROM read_csv_auto('{safe_path}')"
+            )
+        except (duckdb.ConversionException, duckdb.InvalidInputException):
+            conn.execute(
+                f"CREATE OR REPLACE TABLE {table_name} AS "
+                f"SELECT * FROM read_csv_auto('{safe_path}', "
+                f"all_varchar=true, quote='\"', ignore_errors=true)"
+            )
 
     return table_name
 

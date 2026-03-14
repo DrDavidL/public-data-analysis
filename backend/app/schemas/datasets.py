@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 
 class SearchRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
+    sources: list[str] | None = None  # None = all sources
 
 
 class DatasetResult(BaseModel):

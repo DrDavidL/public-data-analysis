@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 CATALOG_URL = "https://datacatalogapi.worldbank.org/ddhxext/DatasetList"
 INDICATOR_URL = "https://api.worldbank.org/v2/indicator"
 TIMEOUT = 15.0
+DOWNLOAD_TIMEOUT = 60.0  # More generous timeout for paginated downloads
 
 
 class WorldBankSource:
@@ -75,7 +76,7 @@ class WorldBankSource:
         ):
             return (
                 f"https://api.worldbank.org/v2/country/all/indicator/"
-                f"{dataset_id}?format=json&per_page=1000"
+                f"{dataset_id}?format=json&per_page=10000"
             )
         return None
 
@@ -96,7 +97,7 @@ class WorldBankSource:
         try:
             all_records: list[dict] = []
             page = 1
-            async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+            async with httpx.AsyncClient(timeout=DOWNLOAD_TIMEOUT) as client:
                 while True:
                     page_url = f"{url}&page={page}"
                     resp = await client.get(page_url)
@@ -236,7 +237,7 @@ async def _fetch_indicators(
                 formats=["json"],
                 download_url=(
                     f"https://api.worldbank.org/v2/country/all/indicator/"
-                    f"{code}?format=json&per_page=1000"
+                    f"{code}?format=json&per_page=10000"
                 ),
                 metadata={
                     k: v

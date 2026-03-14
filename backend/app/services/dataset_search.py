@@ -16,7 +16,10 @@ from app.services.sources.harvard_dataverse import HarvardDataverseSource
 from app.services.sources.hud import HUDSource
 from app.services.sources.huggingface import HuggingFaceSource
 from app.services.sources.kaggle_source import KaggleSource
+from app.services.sources.oecd import OECDSource
+from app.services.sources.owid import OWIDSource
 from app.services.sources.sdohplace import SDOHPlaceSource
+from app.services.sources.vdem import VDemSource
 from app.services.sources.worldbank import WorldBankSource
 
 logger = logging.getLogger(__name__)
@@ -35,6 +38,9 @@ ALL_SOURCES = [
     CMAPSource(),
     CensusSource(),
     ChicagoHealthAtlasSource(),
+    OWIDSource(),
+    OECDSource(),
+    VDemSource(),
 ]
 
 _source_index = SourceIndex()
@@ -72,18 +78,28 @@ async def _refine_query(question: str) -> str:
     return question
 
 
-async def search_datasets(question: str, limit_per_source: int = 5) -> list[DatasetResult]:
+async def search_datasets(
+    question: str,
+    limit_per_source: int = 5,
+    sources: list[str] | None = None,
+) -> list[DatasetResult]:
     # Refine the natural language question into search-friendly keywords
     search_query = await _refine_query(question)
 
     # Refresh cross-source index (no-op if cache is fresh)
     await _source_index.refresh()
 
-    tasks = [_search_source(src, search_query, limit_per_source) for src in ALL_SOURCES]
+    # Filter to selected sources (None = all)
+    active_sources = ALL_SOURCES
+    if sources is not None:
+        allowed = set(sources)
+        active_sources = [s for s in ALL_SOURCES if s.source_name in allowed]
+
+    tasks = [_search_source(src, search_query, limit_per_source) for src in active_sources]
     results_per_source = await asyncio.gather(*tasks)
 
     all_results: list[DatasetResult] = []
-    for source, results in zip(ALL_SOURCES, results_per_source, strict=True):
+    for source, results in zip(active_sources, results_per_source, strict=True):
         name = getattr(source, "source_name", "unknown")
         downloadable_count = sum(1 for r in results if r.download_url)
         logger.info(

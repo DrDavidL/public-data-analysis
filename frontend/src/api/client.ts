@@ -49,6 +49,8 @@ export interface StartRequest {
   dataset_id: string;
   question: string;
   download_url: string | null;
+  dataset_title?: string;
+  dataset_description?: string;
 }
 export interface DataQualityFinding {
   severity: "error" | "warning" | "info";
@@ -82,6 +84,7 @@ export interface StartResponse {
   summary_stats: Record<string, unknown>;
   data_quality: DataQualityReport;
   charts: Record<string, unknown>[];
+  chart_code: string | null;
 }
 export interface AskRequest {
   session_id: string;
@@ -110,8 +113,8 @@ export const authApi = {
 };
 
 export const datasetApi = {
-  search: (question: string) =>
-    api.post<DatasetResult[]>("/datasets/search", { question }),
+  search: (question: string, sources?: string[]) =>
+    api.post<DatasetResult[]>("/datasets/search", { question, sources }),
 };
 
 export interface UploadResponse {
@@ -122,6 +125,7 @@ export interface UploadResponse {
   summary_stats: Record<string, unknown>;
   data_quality: DataQualityReport;
   charts: Record<string, unknown>[];
+  chart_code: string | null;
 }
 
 export const analysisApi = {
@@ -141,6 +145,41 @@ export const analysisApi = {
     api.get<{ tables: TableInfo[] }>(`/analysis/tables/${sessionId}`),
   execute: (sessionId: string, code: string, language: string) =>
     api.post<Record<string, unknown>>(`/analysis/execute/${sessionId}`, { code, language }),
+};
+
+export interface SavedSession {
+  session_id: string;
+  dataset_title: string;
+  dataset_description: string;
+  dataset_source: string;
+  dataset_id: string;
+  download_url: string;
+  original_question: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReloadResponse {
+  session_id: string;
+  table_name: string;
+  columns: { name: string; type: string }[];
+  row_count: number;
+  data_quality: DataQualityReport;
+  charts: Record<string, unknown>[];
+  chart_code: string;
+  chat_history: { role: string; content: string; code_executed?: string; sql_executed?: string }[];
+  dataset_title: string;
+  dataset_description: string;
+  dataset_source: string;
+  download_url: string;
+}
+
+export const sessionsApi = {
+  history: () => api.get<SavedSession[]>("/sessions/history"),
+  reload: (sessionId: string) =>
+    api.post<ReloadResponse>(`/sessions/${sessionId}/reload`),
+  delete: (sessionId: string) =>
+    api.delete(`/sessions/${sessionId}`),
 };
 
 export default api;

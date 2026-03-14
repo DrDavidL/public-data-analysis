@@ -11,4 +11,4 @@ router = APIRouter(prefix="/api/datasets", tags=["datasets"])
 async def search(
     body: SearchRequest, _email: str = Depends(get_current_user)
 ) -> list[DatasetResult]:
-    return await search_datasets(body.question)
+    return await search_datasets(body.question, sources=body.sources)

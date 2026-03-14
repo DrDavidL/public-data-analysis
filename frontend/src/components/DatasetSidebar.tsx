@@ -40,12 +40,12 @@ export default function DatasetSidebar({ tables, onAddDataset }: Props) {
 
 const styles: Record<string, React.CSSProperties> = {
   sidebar: {
-    width: 240,
     background: "#f8fafc",
     borderRight: "1px solid #e5e7eb",
-    padding: "1rem",
+    padding: "0.75rem",
     overflowY: "auto",
-    flexShrink: 0,
+    flex: 1,
+    minHeight: 0,
   },
   header: {
     display: "flex",
@@ -70,7 +70,14 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: "0.5rem",
     border: "1px solid #e5e7eb",
   },
-  tableName: { fontWeight: 600, fontSize: "0.85rem", fontFamily: "monospace" },
+  tableName: {
+    fontWeight: 600,
+    fontSize: "0.85rem",
+    fontFamily: "monospace",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
   rowCount: { fontSize: "0.75rem", color: "#888", marginBottom: "0.25rem" },
   details: { marginTop: "0.25rem" },
   summary: {
