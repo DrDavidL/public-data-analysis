@@ -17,6 +17,7 @@ const SOURCE_COLORS: Record<string, string> = {
   owid: "#286BBB",
   oecd: "#0E47CB",
   vdem: "#8B1A1A",
+  eia: "#00843d",
 };
 
 interface Props {

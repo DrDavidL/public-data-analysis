@@ -8,7 +8,7 @@ AI-powered platform for searching, downloading, and analyzing public datasets wi
 React (Vite+TS+Plotly) → FastAPI → Azure OpenAI (GPT-5-mini search, GPT-5.2 analysis)
                                   → DuckDB (per-session, in-memory)
                                   → RestrictedPython sandbox (REPL)
-                                  → 16 data sources (data.gov, World Bank, Kaggle, HuggingFace, SDOH Place, CMS, Harvard Dataverse, HUD, BLS, FRED, CMAP, Census, Chicago Health Atlas, OWID, OECD, V-Dem)
+                                  → 17 data sources (data.gov, World Bank, Kaggle, HuggingFace, SDOH Place, CMS, Harvard Dataverse, HUD, BLS, FRED, CMAP, Census, Chicago Health Atlas, OWID, OECD, V-Dem, EIA)
 ```
 
 ## Key Files

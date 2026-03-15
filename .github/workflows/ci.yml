@@ -2,8 +2,7 @@ name: CI
 
 on:
   push:
-    # TODO: REVERT before merging to main — remove feature branch
-    branches: [main, feature/session-history-code-viewer]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -49,8 +48,7 @@ jobs:
       - run: docker build -t public-data-analysis .
 
   deploy:
-    # TODO: REVERT before merging to main — remove feature branch from deploy trigger
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/session-history-code-viewer') && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: [docker]
     environment: production

@@ -4,7 +4,7 @@ AI-powered platform for searching, downloading, and analyzing public datasets wi
 
 ## Features
 
-- **Multi-source dataset search** — queries 7 sources (data.gov, World Bank, Kaggle, HuggingFace, SDOH Place, CMS, Harvard Dataverse) simultaneously
+- **Multi-source dataset search** — queries 17 sources (data.gov, World Bank, Kaggle, HuggingFace, SDOH Place, CMS, Harvard Dataverse, HUD, BLS, FRED, CMAP, Census, Chicago Health Atlas, OWID, OECD, V-Dem, EIA) simultaneously
 - **AI-ranked results** — GPT-5-mini ranks and describes datasets by relevance to your question
 - **Interactive analysis** — ask follow-up questions in natural language, get SQL/Python-backed answers with Plotly charts
 - **Secure REPL** — write your own SQL or Python against loaded datasets in a sandboxed environment
@@ -20,7 +20,7 @@ React (Vite + TypeScript + Plotly.js)
 FastAPI
   ├── Auth (JWT + email allowlist)
   ├── Admin (runtime allowlist management)
-  ├── Dataset Search (7 sources → GPT-5-mini ranking)
+  ├── Dataset Search (17 sources → GPT-5-mini ranking)
   ├── Analysis (GPT-5.2 → SQL/Plotly chart generation)
   ├── DuckDB (per-session, in-memory)
   └── Sandbox (RestrictedPython REPL)
@@ -73,6 +73,9 @@ ADMIN_EMAILS="you@example.com"
 # Dataset sources (optional, enables more results)
 DATAGOV_API_KEY=""          # Free from api.data.gov
 KAGGLE_API_TOKEN=""         # From kaggle.com/settings
+FRED_API_KEY=""             # Free from fred.stlouisfed.org
+BLS_API_KEY=""              # Free from bls.gov/developers
+EIA_API_KEY=""              # Free from eia.gov/opendata/register.php
 ```
 
 ### 2. Install dependencies
@@ -415,47 +418,6 @@ curl -X DELETE -H "Authorization: Bearer $TOKEN" \
 
 Changes take effect immediately. The env var `ALLOWED_EMAILS` seeds the allowlist on startup; runtime changes persist until the app restarts.
 
-## Roadmap: Persistent Users
-
-User accounts (email + hashed password) are currently stored in-memory and lost on restart. The email allowlist persists via the `ALLOWED_EMAILS` env var, but users must re-register after each deploy or restart. Below is the planned fix.
-
-### Approach: Azure Table Storage
-
-Azure Table Storage is the best fit — serverless, pennies/month, zero infrastructure, and perfect for simple key-value user records.
-
-### Implementation Plan
-
-1. **Add dependency**: `azure-data-tables` package
-2. **Add env var**: `AZURE_STORAGE_CONNECTION_STRING` (from an Azure Storage Account)
-3. **Create `services/user_store.py`**:
-   - On startup, connect to a `users` table in Azure Table Storage
-   - `register(email, hashed_password)` → insert row (PartitionKey=`"users"`, RowKey=email)
-   - `get(email)` → retrieve hashed password
-   - `exists(email)` → check if registered
-   - Falls back to in-memory dict if no connection string is set (local dev)
-4. **Update `routers/auth.py`**: replace `_users: dict` with calls to `user_store`
-5. **Azure setup**:
-   ```bash
-   # Create storage account (one-time)
-   az storage account create --name pubdatastorage --resource-group pubdata-rg --sku Standard_LRS
-   # Get connection string
-   az storage account show-connection-string --name pubdatastorage --resource-group pubdata-rg -o tsv
-   # Set on container app
-   az containerapp update --name pubdata-app --resource-group pubdata-rg \
-     --set-env-vars "AZURE_STORAGE_CONNECTION_STRING=<connection-string>"
-   ```
-
-### Why Table Storage over alternatives
-
-| Option | Pros | Cons |
-|--------|------|------|
-| **Azure Table Storage** | Serverless, ~$0.01/mo, no schema | Limited querying |
-| SQLite on Azure Files | Simple, familiar | Requires volume mount, write locking |
-| Cosmos DB | Powerful, global replication | Overkill and expensive for user records |
-| PostgreSQL Flexible Server | Full relational DB | ~$15+/mo minimum, overkill |
-
-For a user table with a few dozen rows, Table Storage is the clear winner.
-
 ## Project Structure
 
 ```
@@ -466,7 +428,7 @@ public-data-analysis/
 │   │   ├── config.py            # Settings from .env
 │   │   ├── routers/             # auth, datasets, analysis, admin
 │   │   ├── services/            # AI, search, analysis, sandbox, datastore, allowlist
-│   │   │   └── sources/         # 7 dataset source adapters
+│   │   │   └── sources/         # 17 dataset source adapters
 │   │   ├── schemas/             # Pydantic models
 │   │   └── core/                # JWT security, session manager
 │   ├── tests/
