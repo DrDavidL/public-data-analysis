@@ -82,6 +82,8 @@ ALLOWED_DOWNLOAD_DOMAINS = {
     "catalog.ourworldindata.org",
     # OECD
     "sdmx.oecd.org",
+    # EIA
+    "api.eia.gov",
 }
 
 
@@ -222,6 +224,7 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
         from app.services.sources.cmap import CMAPSource
         from app.services.sources.cms import CMSSource
         from app.services.sources.datagov import DataGovSource
+        from app.services.sources.eia import EIASource
         from app.services.sources.fred import FREDSource
         from app.services.sources.harvard_dataverse import HarvardDataverseSource
         from app.services.sources.hud import HUDSource
@@ -249,6 +252,7 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
             "owid": OWIDSource(),
             "oecd": OECDSource(),
             "vdem": VDemSource(),
+            "eia": EIASource(),
         }
         adapter = source_adapters.get(req.source)
 
@@ -732,6 +736,7 @@ async def reload_session(saved: dict, owner: str) -> dict:
         from app.services.sources.cmap import CMAPSource
         from app.services.sources.cms import CMSSource
         from app.services.sources.datagov import DataGovSource
+        from app.services.sources.eia import EIASource
         from app.services.sources.fred import FREDSource
         from app.services.sources.harvard_dataverse import HarvardDataverseSource
         from app.services.sources.hud import HUDSource
@@ -759,6 +764,7 @@ async def reload_session(saved: dict, owner: str) -> dict:
             "owid": OWIDSource(),
             "oecd": OECDSource(),
             "vdem": VDemSource(),
+            "eia": EIASource(),
         }
         adapter = source_adapters.get(source)
 

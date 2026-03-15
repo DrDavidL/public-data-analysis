@@ -22,6 +22,7 @@ const SEARCH_STEPS = [
   "Searching Our World in Data...",
   "Searching OECD...",
   "Searching V-Dem...",
+  "Searching EIA...",
   "Ranking results by relevance...",
 ];
 
@@ -130,6 +131,13 @@ const SOURCES = [
     color: "#8B1A1A",
     description: "Varieties of Democracy (V-Dem) v15 dataset with 500+ democracy indicators for 202 countries from 1789 to 2024. Covers electoral, liberal, participatory, deliberative, and egalitarian democracy, plus corruption, civil liberties, media freedom, and gender equality. CC-BY-SA licensed.",
     url: "https://v-dem.net",
+  },
+  {
+    name: "EIA",
+    key: "eia",
+    color: "#00843d",
+    description: "U.S. Energy Information Administration — comprehensive energy data including electricity generation, petroleum prices, natural gas, coal, nuclear, and renewables. Covers production, consumption, prices, imports/exports, and state-level data.",
+    url: "https://www.eia.gov/opendata/",
   },
 ];
 

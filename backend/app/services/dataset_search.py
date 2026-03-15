@@ -10,6 +10,7 @@ from app.services.sources.census import CensusSource
 from app.services.sources.cmap import CMAPSource
 from app.services.sources.cms import CMSSource
 from app.services.sources.datagov import DataGovSource
+from app.services.sources.eia import EIASource
 from app.services.sources.fred import FREDSource
 from app.services.sources.harvard_dataverse import HarvardDataverseSource
 from app.services.sources.hud import HUDSource
@@ -39,6 +40,7 @@ ALL_SOURCES = [
     OWIDSource(),
     OECDSource(),
     VDemSource(),
+    EIASource(),
 ]
 
 _source_index = SourceIndex()
