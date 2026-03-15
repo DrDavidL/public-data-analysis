@@ -60,18 +60,11 @@ _POPULAR_DATASETS = [
         ],
     },
     {
-        "route": (
-            "electricity/state-electricity-profiles"
-            "/emissions-by-state-by-fuel"
-        ),
-        "id": (
-            "electricity/state-electricity-profiles"
-            "/emissions-by-state-by-fuel"
-        ),
+        "route": ("electricity/state-electricity-profiles/emissions-by-state-by-fuel"),
+        "id": ("electricity/state-electricity-profiles/emissions-by-state-by-fuel"),
         "title": "Power Sector CO2 Emissions by State and Fuel",
         "description": (
-            "Annual CO2 emissions from the electric power sector"
-            " by state and fuel type."
+            "Annual CO2 emissions from the electric power sector by state and fuel type."
         ),
         "keywords": (
             "co2 emissions carbon dioxide electricity power"
@@ -83,28 +76,16 @@ _POPULAR_DATASETS = [
         "route": "petroleum/pri/gnd",
         "id": "petroleum/pri/gnd",
         "title": "Weekly Retail Gasoline and Diesel Prices",
-        "description": (
-            "Weekly retail gasoline and diesel fuel prices"
-            " by grade and region."
-        ),
-        "keywords": (
-            "gasoline diesel fuel price retail weekly"
-            " gas pump price oil petroleum"
-        ),
+        "description": ("Weekly retail gasoline and diesel fuel prices by grade and region."),
+        "keywords": ("gasoline diesel fuel price retail weekly gas pump price oil petroleum"),
         "data_cols": ["value"],
     },
     {
         "route": "petroleum/crd/crpdn",
         "id": "petroleum/crd/crpdn",
         "title": "U.S. Crude Oil Production",
-        "description": (
-            "Monthly crude oil field production"
-            " by state and PADD district."
-        ),
-        "keywords": (
-            "crude oil production drilling wells"
-            " barrels state monthly petroleum"
-        ),
+        "description": ("Monthly crude oil field production by state and PADD district."),
+        "keywords": ("crude oil production drilling wells barrels state monthly petroleum"),
         "data_cols": ["value"],
     },
     {
@@ -116,8 +97,7 @@ _POPULAR_DATASETS = [
             " stocks including crude oil and gasoline."
         ),
         "keywords": (
-            "petroleum supply stocks inventory crude oil"
-            " gasoline distillate weekly imports exports"
+            "petroleum supply stocks inventory crude oil gasoline distillate weekly imports exports"
         ),
         "data_cols": ["value"],
     },
@@ -125,13 +105,9 @@ _POPULAR_DATASETS = [
         "route": "natural-gas/pri/sum",
         "id": "natural-gas/pri/sum",
         "title": "Natural Gas Prices",
-        "description": (
-            "Monthly and annual natural gas prices by type"
-            " and state."
-        ),
+        "description": ("Monthly and annual natural gas prices by type and state."),
         "keywords": (
-            "natural gas price residential commercial"
-            " industrial wellhead citygate electric power"
+            "natural gas price residential commercial industrial wellhead citygate electric power"
         ),
         "data_cols": ["value"],
     },
@@ -140,12 +116,10 @@ _POPULAR_DATASETS = [
         "id": "natural-gas/sum/lsum",
         "title": "Natural Gas Supply and Disposition",
         "description": (
-            "Monthly natural gas supply, disposition, and"
-            " consumption by state and sector."
+            "Monthly natural gas supply, disposition, and consumption by state and sector."
         ),
         "keywords": (
-            "natural gas supply consumption production"
-            " imports exports pipeline state monthly"
+            "natural gas supply consumption production imports exports pipeline state monthly"
         ),
         "data_cols": ["value"],
     },
@@ -154,12 +128,10 @@ _POPULAR_DATASETS = [
         "id": "coal/shipments",
         "title": "Coal Shipments",
         "description": (
-            "Quarterly coal shipments between mines and"
-            " power plants, including tonnage and price."
+            "Quarterly coal shipments between mines and power plants, including tonnage and price."
         ),
         "keywords": (
-            "coal shipments mine power plant tonnage"
-            " price heat sulfur ash state quarterly"
+            "coal shipments mine power plant tonnage price heat sulfur ash state quarterly"
         ),
         "data_cols": [
             "quantity",
@@ -195,8 +167,7 @@ _POPULAR_DATASETS = [
             " by source and sector from 1960 to present."
         ),
         "keywords": (
-            "state energy production consumption price"
-            " expenditure annual seds renewable fossil"
+            "state energy production consumption price expenditure annual seds renewable fossil"
         ),
         "data_cols": ["value"],
     },
@@ -210,8 +181,7 @@ _POPULAR_DATASETS = [
             " and renewables."
         ),
         "keywords": (
-            "forecast outlook projection energy price"
-            " production consumption short term steo"
+            "forecast outlook projection energy price production consumption short term steo"
         ),
         "data_cols": ["value"],
     },
@@ -255,27 +225,17 @@ _POPULAR_DATASETS = [
         "id": "crude-oil-imports/data",
         "title": "U.S. Crude Oil Imports",
         "description": (
-            "Monthly crude oil imports by country of origin,"
-            " destination PADD district, and grade."
+            "Monthly crude oil imports by country of origin, destination PADD district, and grade."
         ),
-        "keywords": (
-            "crude oil imports country origin destination"
-            " grade barrels monthly opec"
-        ),
+        "keywords": ("crude oil imports country origin destination grade barrels monthly opec"),
         "data_cols": ["quantity"],
     },
     {
         "route": "nuclear-outages/facility-nuclear-outages",
         "id": "nuclear-outages/facility-nuclear-outages",
         "title": "Nuclear Power Plant Outages",
-        "description": (
-            "Daily nuclear power plant outage and capacity"
-            " data by facility."
-        ),
-        "keywords": (
-            "nuclear power plant outage capacity"
-            " generation facility reactor"
-        ),
+        "description": ("Daily nuclear power plant outage and capacity data by facility."),
+        "keywords": ("nuclear power plant outage capacity generation facility reactor"),
         "data_cols": ["outage", "capacity"],
     },
 ]
@@ -297,10 +257,7 @@ class EIASource:
 
         scored: list[tuple[int, dict]] = []
         for ds in _POPULAR_DATASETS:
-            text = (
-                f"{ds['keywords']} {ds['title']}"
-                f" {ds['description']}"
-            ).lower()
+            text = (f"{ds['keywords']} {ds['title']} {ds['description']}").lower()
             hits = sum(1 for kw in keywords if kw in text)
             if hits > 0:
                 scored.append((hits, ds))
@@ -310,9 +267,7 @@ class EIASource:
         results: list[DatasetResult] = []
         for _hits, ds in scored[:limit]:
             download_url = (
-                f"{BASE_URL}/{ds['route']}"
-                f"?api_key={api_key}"
-                f"&frequency=monthly&length={PAGE_SIZE}"
+                f"{BASE_URL}/{ds['route']}?api_key={api_key}&frequency=monthly&length={PAGE_SIZE}"
             )
             results.append(
                 DatasetResult(
@@ -334,15 +289,9 @@ class EIASource:
         api_key = settings.eia_api_key
         if not api_key or not dataset_id:
             return None
-        return (
-            f"{BASE_URL}/{dataset_id}"
-            f"?api_key={api_key}"
-            f"&frequency=monthly&length={PAGE_SIZE}"
-        )
+        return f"{BASE_URL}/{dataset_id}?api_key={api_key}&frequency=monthly&length={PAGE_SIZE}"
 
-    async def download(
-        self, dataset_id: str, dest_dir: Path
-    ) -> Path | None:
+    async def download(self, dataset_id: str, dest_dir: Path) -> Path | None:
         """Download EIA data as JSON with pagination."""
         api_key = settings.eia_api_key
         if not api_key:
@@ -376,9 +325,7 @@ class EIASource:
                         break
 
                     all_records.extend(records)
-                    total = int(
-                        response_data.get("total", 0)
-                    )
+                    total = int(response_data.get("total", 0))
 
                     offset += len(records)
                     if offset >= total:
@@ -387,22 +334,17 @@ class EIASource:
                     # Safety cap: 50k rows max
                     if len(all_records) >= 50000:
                         logger.info(
-                            "EIA download capped at %d rows"
-                            " for %s",
+                            "EIA download capped at %d rows for %s",
                             len(all_records),
                             dataset_id,
                         )
                         break
 
             if not all_records:
-                logger.warning(
-                    "EIA returned no data for %s", dataset_id
-                )
+                logger.warning("EIA returned no data for %s", dataset_id)
                 return None
 
-            dest.write_text(
-                json.dumps(all_records, ensure_ascii=False)
-            )
+            dest.write_text(json.dumps(all_records, ensure_ascii=False))
             return dest
         except (httpx.HTTPError, OSError, ValueError) as exc:
             logger.warning(
