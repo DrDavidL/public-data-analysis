@@ -16,17 +16,13 @@ def _is_reasoning_provider() -> bool:
 def _get_model_mini() -> str:
     if settings.llm_provider == "azure":
         return settings.azure_deployment_mini
-    if settings.llm_provider == "ollama":
-        return settings.ollama_model_mini
-    return settings.openai_model_mini
+    return settings.ollama_model_mini
 
 
 def _get_model_full() -> str:
     if settings.llm_provider == "azure":
         return settings.azure_deployment_full
-    if settings.llm_provider == "ollama":
-        return settings.ollama_model_full
-    return settings.openai_model_full
+    return settings.ollama_model_full
 
 
 def get_client() -> AsyncAzureOpenAI | AsyncOpenAI:
@@ -44,9 +40,9 @@ def get_client() -> AsyncAzureOpenAI | AsyncOpenAI:
                 api_key="ollama",
             )
         else:
-            _client = AsyncOpenAI(
-                api_key=settings.openai_api_key,
-                base_url=settings.openai_base_url,
+            raise ValueError(
+                f"Unsupported LLM provider: '{settings.llm_provider}'. "
+                "Only 'azure' and 'ollama' are allowed."
             )
     return _client
 

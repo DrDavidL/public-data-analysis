@@ -7,7 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
-    # LLM provider: "azure" (default), "ollama", or "openai"
+    # LLM provider: "azure" (default) or "ollama"
+    # Azure: covered by privacy waiver (calls not stored for human review)
+    # Ollama: local/self-hosted, inherently private
     llm_provider: str = "azure"
 
     # Azure OpenAI (when llm_provider=azure)
@@ -23,12 +25,6 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434/v1"
     ollama_model_mini: str = "llama3.1"
     ollama_model_full: str = "llama3.1"
-
-    # OpenAI (when llm_provider=openai)
-    openai_api_key: str = ""
-    openai_base_url: str = "https://api.openai.com/v1"
-    openai_model_mini: str = "gpt-4o-mini"
-    openai_model_full: str = "gpt-4o"
 
     # Auth
     jwt_secret: str = "change-me-in-production"  # noqa: S105
