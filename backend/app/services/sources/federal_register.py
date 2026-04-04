@@ -49,6 +49,8 @@ class FederalRegisterSource:
         results: list[DatasetResult] = []
         for doc in data.get("results", [])[:limit]:
             doc_number = doc.get("document_number", "")
+            if isinstance(doc_number, list):
+                doc_number = doc_number[0] if doc_number else ""
             if not doc_number:
                 continue
 

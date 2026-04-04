@@ -66,9 +66,11 @@ def _score_topic(topic: dict, keywords: list[str]) -> int:
     kw_field = (topic.get("keywords") or "").lower()
     subcats = ""
     for sc in topic.get("subcategories") or []:
-        subcats += f" {(sc.get('name') or '').lower()}"
-        cat = sc.get("category") or {}
-        subcats += f" {(cat.get('name') or '').lower()}"
+        if isinstance(sc, dict):
+            subcats += f" {(sc.get('name') or '').lower()}"
+            cat = sc.get("category") or {}
+            if isinstance(cat, dict):
+                subcats += f" {(cat.get('name') or '').lower()}"
 
     searchable = f"{name} {desc} {kw_field} {subcats}"
     return sum(1 for kw in keywords if kw in searchable)

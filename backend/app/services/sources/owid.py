@@ -12,6 +12,7 @@ from pathlib import Path
 import httpx
 
 from app.schemas.datasets import DatasetResult
+from app.services.sources.base import extract_keywords
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +25,15 @@ class OWIDSource:
     source_name: str = "owid"
 
     async def search(self, query: str, limit: int = 5) -> list[DatasetResult]:
-        """Search Our World in Data charts matching *query*."""
+        """Search Our World in Data charts matching *query*.
+
+        OWID's search treats multi-word queries as AND-all, so long queries
+        return no results. We use only the first 3 keywords.
+        """
+        keywords = extract_keywords(query)
+        short_query = " ".join(keywords[:3]) if keywords else query
         params: dict[str, str | int] = {
-            "q": query,
+            "q": short_query,
             "type": "charts",
             "page": 0,
             "hitsPerPage": limit,
