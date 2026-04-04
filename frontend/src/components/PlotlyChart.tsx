@@ -73,7 +73,7 @@ export default function PlotlyChart({ spec, sourceCode, meta, pinned, onTogglePi
   };
 
   return (
-    <div style={{ width: "100%", minHeight: 350, paddingBottom: "0.75rem" }}>
+    <div style={{ width: "100%", minHeight: 350, marginBottom: "1.5rem" }}>
       {titleText && <div style={styles.chartTitle}>{titleText}</div>}
       <Plot
         data={data}
@@ -188,11 +188,11 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: "0.5rem",
   },
   pinBtn: {
-    background: "none",
+    background: "#f8fafc",
     border: "1px solid #cbd5e1",
     borderRadius: "4px",
-    padding: "2px 8px",
-    fontSize: "0.75rem",
+    padding: "4px 12px",
+    fontSize: "0.8rem",
     color: "#475569",
     cursor: "pointer",
   },
