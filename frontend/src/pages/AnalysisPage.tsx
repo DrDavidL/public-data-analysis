@@ -514,7 +514,7 @@ const styles: Record<string, React.CSSProperties> = {
   chartsGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(2, 1fr)",
-    gap: "1rem",
+    gap: "1.5rem",
   },
   downloadLink: {
     marginBottom: "0.75rem",
