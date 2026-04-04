@@ -37,10 +37,12 @@ def load_dataset(conn: duckdb.DuckDBPyConnection, file_path: Path, table_name: s
     safe_path = str(file_path).replace("'", "''")
 
     if suffix in (".csv", ".tsv", ".tab"):
+        # For .tsv/.tab files, hint the delimiter; for .csv let DuckDB auto-detect
+        delim_hint = ", delim='\\t'" if suffix in (".tsv", ".tab") else ""
         try:
             conn.execute(
                 f"CREATE OR REPLACE TABLE {table_name} AS "
-                f"SELECT * FROM read_csv_auto('{safe_path}')"
+                f"SELECT * FROM read_csv_auto('{safe_path}'{delim_hint})"
             )
         except (duckdb.ConversionException, duckdb.InvalidInputException):
             # Auto-detection can fail on messy CSVs (wrong types, undetected
@@ -48,7 +50,7 @@ def load_dataset(conn: duckdb.DuckDBPyConnection, file_path: Path, table_name: s
             conn.execute(
                 f"CREATE OR REPLACE TABLE {table_name} AS "
                 f"SELECT * FROM read_csv_auto('{safe_path}', "
-                f"all_varchar=true, quote='\"', ignore_errors=true)"
+                f"all_varchar=true, quote='\"', ignore_errors=true{delim_hint})"
             )
     elif suffix == ".parquet":
         conn.execute(

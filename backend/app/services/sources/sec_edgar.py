@@ -68,7 +68,8 @@ class SECEdgarSource:
             filed = src.get("file_date", src.get("period_of_report", ""))
             filing_url = src.get("file_url", "")
 
-            filing_id = src.get("accession_no", file_num or str(hash(str(src)))[:12])
+            accession = src.get("accession_no", file_num or str(hash(str(src)))[:12])
+            filing_id = accession[0] if isinstance(accession, list) else str(accession)
             title = f"{entity} — {form_type}" if entity else form_type
 
             results.append(

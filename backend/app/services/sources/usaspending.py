@@ -12,6 +12,7 @@ from pathlib import Path
 
 from app.schemas.datasets import DatasetResult
 from app.services.http_client import SourceHTTPClient
+from app.services.sources.base import extract_keywords
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +25,12 @@ class USASpendingSource:
 
     async def search(self, query: str, limit: int = 5) -> list[DatasetResult]:
         """Search USASpending for federal award data matching *query*."""
+        # USASpending API wants individual keyword strings, not one long phrase
+        keywords = extract_keywords(query)
+        if not keywords:
+            return []
         body = {
-            "filters": {"keywords": [query]},
+            "filters": {"keywords": keywords[:5]},
             "fields": [
                 "Award ID",
                 "Recipient Name",
