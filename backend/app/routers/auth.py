@@ -6,7 +6,14 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    LoginRequest,
+    MessageResponse,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+)
 from app.services import allowlist, user_store
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -49,6 +56,22 @@ async def login(body: LoginRequest) -> TokenResponse:
         )
     token = create_access_token(body.email)
     return TokenResponse(access_token=token)
+
+
+@router.put("/change-password", response_model=MessageResponse)
+async def change_password(
+    body: ChangePasswordRequest,
+    email: str = Depends(get_current_user),
+) -> MessageResponse:
+    hashed = user_store.get_password_hash(email)
+    if not hashed or not verify_password(body.current_password, hashed):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect",
+        )
+    new_hashed = hash_password(body.new_password)
+    user_store.set_password(email, new_hashed)
+    return MessageResponse(message="Password changed successfully")
 
 
 @router.get("/me", response_model=UserResponse)

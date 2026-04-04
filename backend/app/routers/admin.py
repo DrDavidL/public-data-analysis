@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.security import get_admin_user
-from app.schemas.auth import AddEmailRequest, AllowlistResponse
-from app.services import allowlist
+from app.core.security import get_admin_user, hash_password
+from app.schemas.auth import (
+    AddEmailRequest,
+    AllowlistResponse,
+    MessageResponse,
+    ResetPasswordRequest,
+)
+from app.services import allowlist, user_store
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -20,6 +25,20 @@ async def add_to_allowlist(
     for email in body.emails:
         allowlist.add(email)
     return AllowlistResponse(emails=allowlist.list_all())
+
+
+@router.put("/reset-password", response_model=MessageResponse)
+async def reset_password(
+    body: ResetPasswordRequest,
+    _admin: str = Depends(get_admin_user),
+) -> MessageResponse:
+    hashed = hash_password(body.new_password)
+    if not user_store.set_password(body.email, hashed):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No account found for {body.email}",
+        )
+    return MessageResponse(message=f"Password reset for {body.email}")
 
 
 @router.delete("/allowlist/{email}", response_model=AllowlistResponse)

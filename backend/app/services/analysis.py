@@ -84,6 +84,24 @@ ALLOWED_DOWNLOAD_DOMAINS = {
     "sdmx.oecd.org",
     # EIA
     "api.eia.gov",
+    # USASpending
+    "api.usaspending.gov",
+    # ClinicalTrials.gov
+    "clinicaltrials.gov",
+    # OpenFDA
+    "api.fda.gov",
+    # CFPB
+    "www.consumerfinance.gov",
+    # SEC EDGAR
+    "efts.sec.gov",
+    "www.sec.gov",
+    "data.sec.gov",
+    # Federal Register
+    "www.federalregister.gov",
+    # EPA
+    "enviro.epa.gov",
+    # FDIC
+    "banks.data.fdic.gov",
 }
 
 
@@ -151,12 +169,29 @@ async def _download_file(url: str, dest_dir: Path, dataset_id: str) -> Path:
                     fname = f"{sanitize_table_name(dataset_id)}.csv"
 
             # Infer extension from content-type if filename has no valid data extension
-            known_exts = {".csv", ".json", ".jsonl", ".parquet", ".xlsx", ".xls"}
+            known_exts = {
+                ".csv",
+                ".json",
+                ".jsonl",
+                ".parquet",
+                ".xlsx",
+                ".xls",
+                ".pdf",
+                ".xml",
+                ".geojson",
+                ".zip",
+            }
             fname_ext = Path(fname).suffix.lower()
             if fname_ext not in known_exts:
                 ct = resp.headers.get("content-type", "")
                 if "json" in ct:
                     fname = f"{sanitize_table_name(dataset_id)}.json"
+                elif "pdf" in ct:
+                    fname = f"{sanitize_table_name(dataset_id)}.pdf"
+                elif "xml" in ct:
+                    fname = f"{sanitize_table_name(dataset_id)}.xml"
+                elif "zip" in ct:
+                    fname = f"{sanitize_table_name(dataset_id)}.zip"
                 elif "csv" in ct or "text/plain" in ct:
                     fname = f"{sanitize_table_name(dataset_id)}.csv"
                 else:
@@ -221,18 +256,26 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
         # Download dataset — always prefer source adapter (handles format quirks)
         from app.services.sources.bls import BLSSource
         from app.services.sources.census import CensusSource
+        from app.services.sources.cfpb import CFPBSource
+        from app.services.sources.clinicaltrials import ClinicalTrialsSource
         from app.services.sources.cmap import CMAPSource
         from app.services.sources.cms import CMSSource
         from app.services.sources.datagov import DataGovSource
         from app.services.sources.eia import EIASource
+        from app.services.sources.epa_ghgrp import EPAGHGRPSource
+        from app.services.sources.fdic import FDICSource
+        from app.services.sources.federal_register import FederalRegisterSource
         from app.services.sources.fred import FREDSource
         from app.services.sources.harvard_dataverse import HarvardDataverseSource
         from app.services.sources.hud import HUDSource
         from app.services.sources.huggingface import HuggingFaceSource
         from app.services.sources.kaggle_source import KaggleSource
         from app.services.sources.oecd import OECDSource
+        from app.services.sources.openfda import OpenFDASource
         from app.services.sources.owid import OWIDSource
         from app.services.sources.sdohplace import SDOHPlaceSource
+        from app.services.sources.sec_edgar import SECEdgarSource
+        from app.services.sources.usaspending import USASpendingSource
         from app.services.sources.vdem import VDemSource
         from app.services.sources.worldbank import WorldBankSource
 
@@ -253,6 +296,14 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
             "oecd": OECDSource(),
             "vdem": VDemSource(),
             "eia": EIASource(),
+            "usaspending": USASpendingSource(),
+            "clinicaltrials": ClinicalTrialsSource(),
+            "openfda": OpenFDASource(),
+            "cfpb": CFPBSource(),
+            "sec_edgar": SECEdgarSource(),
+            "federal_register": FederalRegisterSource(),
+            "epa_ghgrp": EPAGHGRPSource(),
+            "fdic": FDICSource(),
         }
         adapter = source_adapters.get(req.source)
 
@@ -395,7 +446,8 @@ You are a data analyst. Write Python code that creates 2-4 Plotly figures explor
 the dataset in relation to the user's question.
 
 Rules:
-- `df`, `pd`, `np`, `px`, `go` are ALREADY available — do NOT import them.
+- `df`, `pd`, `np`, `px`, `go`, `datetime`, `scipy_stats` are ALREADY available — \
+do NOT import them.
 - Do NOT re-assign or shadow builtins: str, int, float, list, dict, len, sum, min, max, type.
 - NEVER use variable names starting with underscore (e.g. `_data`, `_temp`). \
 The sandbox will reject them. Use plain names like `data`, `temp`, `cols`.
@@ -413,7 +465,20 @@ or `.mean()` — these fail on string/object columns.
 - Handle NaN values (dropna or fillna) and convert types if needed.
 - For time series, sort by the date/time column before plotting.
 - For categorical breakdowns, use groupby + aggregation.
-- Do NOT use lifelines or scipy — compute any survival/KM curves manually with pandas.
+- Do NOT use lifelines — compute any survival/KM curves manually with pandas.
+- `scipy_stats` (scipy.stats) is available for t-tests, chi-square, correlation, etc.
+
+Data-type specific guidance:
+- Financial data: strip "$", ",", "%" from string columns before converting to float \
+(e.g. `df["col"].str.replace(r"[$,%]", "", regex=True).astype(float)`).
+- Geographic/state data: use `px.choropleth` with `locations=` and \
+`locationmode="USA-states"` for US state-level maps, or `px.scatter_geo` for coordinates.
+- Date/period columns: use `pd.to_datetime()` to parse dates. For BLS/FRED period codes \
+(M01, Q1, etc.), build proper dates: `pd.to_datetime(df["year"] + df["period"].str[1:], \
+format="%Y%m")`.
+- Regulatory/FDA data: group by category/product/company and show top-N with \
+`value_counts().head(N)`.
+- Nested column names (with dots like "patient.age"): access with `df["patient.age"]`.
 
 Respond with Python code only — no markdown fences, no explanation.\
 """
@@ -531,7 +596,8 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
                 '- "python": Any analysis that needs charts or multi-step logic.\n\n'
                 "Python sandbox rules:\n"
                 f"- Pre-injected DataFrames: {df_mapping}\n"
-                "- Pre-injected modules: pd, np, px (plotly.express), go (plotly.graph_objects)\n"
+                "- Pre-injected modules: pd, np, px (plotly.express), go (plotly.graph_objects), "
+                "datetime, scipy_stats (scipy.stats)\n"
                 "- Do NOT re-assign pd, np, px, go, str, int, float, list, dict, "
                 "len, sum, min, max, type.\n"
                 "- NEVER use variable names starting with underscore "
@@ -540,11 +606,18 @@ async def ask_question(req: AskRequest) -> AnalysisResponse:
                 "NumPy arrays to avoid pandas dtype conflicts.\n"
                 "- For imputation, use df.select_dtypes(include='number') before "
                 ".median() or .mean() — these fail on string columns.\n"
-                "- Do NOT use lifelines or scipy — compute survival/KM curves "
-                "manually with pandas.\n"
+                "- Do NOT use lifelines — compute survival/KM curves "
+                "manually with pandas. scipy_stats is available for t-tests, "
+                "chi-square, correlation, etc.\n"
                 "- Always sort/aggregate before plotting. Use px (plotly.express).\n"
                 "- Assign figures to fig1, fig2, etc. Set titles and axis labels.\n"
-                "- Do NOT call fig.show(). Handle NaN values.\n\n"
+                "- Do NOT call fig.show(). Handle NaN values.\n"
+                "- Financial data: strip '$', ',', '%' from strings before float conversion.\n"
+                "- Geographic data: use px.choropleth with locationmode='USA-states' "
+                "for state-level maps.\n"
+                "- Date/period columns: use pd.to_datetime() to parse. "
+                "For BLS/FRED period codes (M01, Q1), build dates from year+period.\n"
+                "- Nested column names (with dots): access as df['col.subcol'].\n\n"
                 "Respond with JSON:\n"
                 "{\n"
                 '  "strategy": "sql" | "python",\n'
@@ -733,18 +806,26 @@ async def reload_session(saved: dict, owner: str) -> dict:
         # Re-download using the same logic as start_analysis
         from app.services.sources.bls import BLSSource
         from app.services.sources.census import CensusSource
+        from app.services.sources.cfpb import CFPBSource
+        from app.services.sources.clinicaltrials import ClinicalTrialsSource
         from app.services.sources.cmap import CMAPSource
         from app.services.sources.cms import CMSSource
         from app.services.sources.datagov import DataGovSource
         from app.services.sources.eia import EIASource
+        from app.services.sources.epa_ghgrp import EPAGHGRPSource
+        from app.services.sources.fdic import FDICSource
+        from app.services.sources.federal_register import FederalRegisterSource
         from app.services.sources.fred import FREDSource
         from app.services.sources.harvard_dataverse import HarvardDataverseSource
         from app.services.sources.hud import HUDSource
         from app.services.sources.huggingface import HuggingFaceSource
         from app.services.sources.kaggle_source import KaggleSource
         from app.services.sources.oecd import OECDSource
+        from app.services.sources.openfda import OpenFDASource
         from app.services.sources.owid import OWIDSource
         from app.services.sources.sdohplace import SDOHPlaceSource
+        from app.services.sources.sec_edgar import SECEdgarSource
+        from app.services.sources.usaspending import USASpendingSource
         from app.services.sources.vdem import VDemSource
         from app.services.sources.worldbank import WorldBankSource
 
@@ -765,6 +846,14 @@ async def reload_session(saved: dict, owner: str) -> dict:
             "oecd": OECDSource(),
             "vdem": VDemSource(),
             "eia": EIASource(),
+            "usaspending": USASpendingSource(),
+            "clinicaltrials": ClinicalTrialsSource(),
+            "openfda": OpenFDASource(),
+            "cfpb": CFPBSource(),
+            "sec_edgar": SECEdgarSource(),
+            "federal_register": FederalRegisterSource(),
+            "epa_ghgrp": EPAGHGRPSource(),
+            "fdic": FDICSource(),
         }
         adapter = source_adapters.get(source)
 

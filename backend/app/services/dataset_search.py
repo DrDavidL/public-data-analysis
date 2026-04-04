@@ -7,19 +7,27 @@ from app.services.ai import chat_mini, extract_json
 from app.services.source_index import SourceIndex
 from app.services.sources.bls import BLSSource
 from app.services.sources.census import CensusSource
+from app.services.sources.cfpb import CFPBSource
 from app.services.sources.chicago_health_atlas import ChicagoHealthAtlasSource
+from app.services.sources.clinicaltrials import ClinicalTrialsSource
 from app.services.sources.cmap import CMAPSource
 from app.services.sources.cms import CMSSource
 from app.services.sources.datagov import DataGovSource
 from app.services.sources.eia import EIASource
+from app.services.sources.epa_ghgrp import EPAGHGRPSource
+from app.services.sources.fdic import FDICSource
+from app.services.sources.federal_register import FederalRegisterSource
 from app.services.sources.fred import FREDSource
 from app.services.sources.harvard_dataverse import HarvardDataverseSource
 from app.services.sources.hud import HUDSource
 from app.services.sources.huggingface import HuggingFaceSource
 from app.services.sources.kaggle_source import KaggleSource
 from app.services.sources.oecd import OECDSource
+from app.services.sources.openfda import OpenFDASource
 from app.services.sources.owid import OWIDSource
 from app.services.sources.sdohplace import SDOHPlaceSource
+from app.services.sources.sec_edgar import SECEdgarSource
+from app.services.sources.usaspending import USASpendingSource
 from app.services.sources.vdem import VDemSource
 from app.services.sources.worldbank import WorldBankSource
 
@@ -43,6 +51,14 @@ ALL_SOURCES = [
     OECDSource(),
     VDemSource(),
     EIASource(),
+    USASpendingSource(),
+    ClinicalTrialsSource(),
+    OpenFDASource(),
+    CFPBSource(),
+    SECEdgarSource(),
+    FederalRegisterSource(),
+    EPAGHGRPSource(),
+    FDICSource(),
 ]
 
 _source_index = SourceIndex()

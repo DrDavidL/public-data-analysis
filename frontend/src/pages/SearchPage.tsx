@@ -147,6 +147,62 @@ const SOURCES = [
     description: "U.S. Energy Information Administration — comprehensive energy data including electricity generation, petroleum prices, natural gas, coal, nuclear, and renewables. Covers production, consumption, prices, imports/exports, and state-level data.",
     url: "https://www.eia.gov/opendata/",
   },
+  {
+    name: "USASpending",
+    key: "usaspending",
+    color: "#1B2B65",
+    description: "Federal government spending data — contracts, grants, loans, and other financial awards. Track billions in federal spending by agency, recipient, location, and program across all government departments.",
+    url: "https://www.usaspending.gov",
+  },
+  {
+    name: "ClinicalTrials",
+    key: "clinicaltrials",
+    color: "#2E8B57",
+    description: "ClinicalTrials.gov database of clinical studies conducted around the world. Search trials by condition, intervention, sponsor, phase, and status. Covers drug trials, device studies, and behavioral interventions.",
+    url: "https://clinicaltrials.gov",
+  },
+  {
+    name: "OpenFDA",
+    key: "openfda",
+    color: "#0058A4",
+    description: "FDA open data on drug adverse events, recalls, medical device reports, and food safety enforcement actions. Explore medication side effects, manufacturer recalls, and consumer safety reports.",
+    url: "https://open.fda.gov",
+  },
+  {
+    name: "CFPB",
+    key: "cfpb",
+    color: "#20aa3f",
+    description: "Consumer Financial Protection Bureau complaint database. Hundreds of thousands of consumer complaints against banks, lenders, and financial companies — searchable by product, company, issue, and outcome.",
+    url: "https://www.consumerfinance.gov/data-research/consumer-complaints/",
+  },
+  {
+    name: "SEC EDGAR",
+    key: "sec_edgar",
+    color: "#002B5C",
+    description: "Securities and Exchange Commission EDGAR database. Search company filings including 10-K annual reports, 10-Q quarterly reports, 8-K current reports, and other regulatory disclosures for public companies.",
+    url: "https://www.sec.gov/edgar",
+  },
+  {
+    name: "Federal Register",
+    key: "federal_register",
+    color: "#8B0000",
+    description: "The daily journal of the U.S. federal government. Search executive orders, agency rules, proposed regulations, and public notices from all federal agencies. The authoritative source for regulatory actions.",
+    url: "https://www.federalregister.gov",
+  },
+  {
+    name: "EPA GHGRP",
+    key: "epa_ghgrp",
+    color: "#2D6A4F",
+    description: "EPA Greenhouse Gas Reporting Program — facility-level greenhouse gas emissions data from large industrial sources. Covers power plants, refineries, chemical plants, and other major emitters across the U.S.",
+    url: "https://www.epa.gov/ghgreporting",
+  },
+  {
+    name: "FDIC",
+    key: "fdic",
+    color: "#004B87",
+    description: "Federal Deposit Insurance Corporation bank data. Quarterly financial reports for FDIC-insured institutions including total assets, deposits, net income, capital ratios, and institution directory.",
+    url: "https://banks.data.fdic.gov",
+  },
 ];
 
 const LOADING_STEPS = [

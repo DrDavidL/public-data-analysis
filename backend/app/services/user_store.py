@@ -64,6 +64,33 @@ def get_password_hash(email: str) -> str | None:
     return _users.get(email)
 
 
+def set_password(email: str, hashed_password: str) -> bool:
+    """Update password for an existing user. Returns False if user doesn't exist."""
+    email = email.lower()
+
+    if _table_client is not None:
+        from azure.core.exceptions import ResourceNotFoundError
+
+        try:
+            _table_client.get_entity("users", email)
+        except ResourceNotFoundError:
+            return False
+        _table_client.update_entity(
+            {
+                "PartitionKey": "users",
+                "RowKey": email,
+                "hashed_password": hashed_password,
+            },
+            mode="MERGE",
+        )
+        return True
+
+    if email not in _users:
+        return False
+    _users[email] = hashed_password
+    return True
+
+
 def exists(email: str) -> bool:
     """Check if a user exists."""
     return get_password_hash(email.lower()) is not None

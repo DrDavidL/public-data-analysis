@@ -31,6 +31,15 @@ const SOURCE_LABELS: Record<string, string> = {
   owid: "Our World in Data",
   oecd: "OECD",
   vdem: "V-Dem",
+  eia: "EIA",
+  usaspending: "USASpending",
+  clinicaltrials: "ClinicalTrials.gov",
+  openfda: "OpenFDA",
+  cfpb: "CFPB",
+  sec_edgar: "SEC EDGAR",
+  federal_register: "Federal Register",
+  epa_ghgrp: "EPA GHGRP",
+  fdic: "FDIC",
   upload: "Upload",
 };
 

@@ -1,8 +1,13 @@
+import json as _json
+import logging
 import re
+import zipfile
 from pathlib import Path
 
 import duckdb
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def sanitize_table_name(name: str) -> str:
@@ -21,7 +26,7 @@ def load_dataset(conn: duckdb.DuckDBPyConnection, file_path: Path, table_name: s
     size = file_path.stat().st_size
     if size == 0:
         raise ValueError(f"Downloaded file is empty: {file_path.name}")
-    if suffix not in (".parquet", ".xlsx", ".xls"):
+    if suffix not in (".parquet", ".xlsx", ".xls", ".pdf"):
         head = file_path.read_bytes()[:512]
         if head.lstrip().lower().startswith((b"<!doctype", b"<html")):
             raise ValueError(
@@ -50,14 +55,59 @@ def load_dataset(conn: duckdb.DuckDBPyConnection, file_path: Path, table_name: s
             f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM read_parquet('{safe_path}')"
         )
     elif suffix in (".json", ".jsonl"):
-        conn.execute(
-            f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM read_json_auto('{safe_path}')"
-        )
+        try:
+            conn.execute(
+                f"CREATE OR REPLACE TABLE {table_name} AS "
+                f"SELECT * FROM read_json_auto('{safe_path}')"
+            )
+        except (duckdb.ConversionException, duckdb.InvalidInputException, duckdb.IOException):
+            # Auto-detection can fail on deeply nested JSON (e.g., FDA FAERS,
+            # SEC filings).  Flatten with pandas and register as a table.
+            import json as _json
+
+            raw = _json.loads(file_path.read_text())
+            if isinstance(raw, dict):
+                # Unwrap common API response wrappers
+                for key in ("results", "data", "hits", "records", "items", "studies"):
+                    if key in raw and isinstance(raw[key], list):
+                        raw = raw[key]
+                        break
+                else:
+                    raw = [raw]
+            if isinstance(raw, list) and raw:
+                df = pd.json_normalize(raw, max_level=2)
+                conn.register("_temp_json_df", df)
+                conn.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM _temp_json_df")
+                conn.unregister("_temp_json_df")
+            else:
+                raise ValueError(  # noqa: B904
+                    f"Cannot parse JSON structure in {file_path.name}"
+                )
     elif suffix in (".xlsx", ".xls"):
         df = pd.read_excel(file_path)
         conn.register("_temp_df", df)
         conn.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM _temp_df")
         conn.unregister("_temp_df")
+    elif suffix == ".pdf":
+        df = _extract_pdf_tables(file_path)
+        conn.register("_temp_pdf_df", df)
+        conn.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM _temp_pdf_df")
+        conn.unregister("_temp_pdf_df")
+    elif suffix == ".xml":
+        df = _parse_xml(file_path)
+        conn.register("_temp_xml_df", df)
+        conn.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM _temp_xml_df")
+        conn.unregister("_temp_xml_df")
+    elif suffix == ".geojson":
+        df = _parse_geojson(file_path)
+        conn.register("_temp_geo_df", df)
+        conn.execute(f"CREATE OR REPLACE TABLE {table_name} AS SELECT * FROM _temp_geo_df")
+        conn.unregister("_temp_geo_df")
+    elif suffix == ".zip":
+        extracted = _extract_zip(file_path)
+        if extracted is None:
+            raise ValueError(f"ZIP archive contains no supported data files: {file_path.name}")
+        return load_dataset(conn, extracted, table_name)
     else:
         # Try CSV as fallback
         try:
@@ -73,6 +123,149 @@ def load_dataset(conn: duckdb.DuckDBPyConnection, file_path: Path, table_name: s
             )
 
     return table_name
+
+
+def _extract_pdf_tables(file_path: Path) -> pd.DataFrame:
+    """Extract tables from a PDF using pdfplumber.
+
+    Concatenates all tables found across pages. If no tables are detected,
+    falls back to extracting text lines as a single-column DataFrame.
+    """
+    import pdfplumber
+
+    all_dfs: list[pd.DataFrame] = []
+    with pdfplumber.open(file_path) as pdf:
+        for page in pdf.pages:
+            tables = page.extract_tables()
+            for table_data in tables:
+                if not table_data or len(table_data) < 2:
+                    continue
+                # First row as header
+                header = [str(c or f"col_{i}") for i, c in enumerate(table_data[0])]
+                rows = table_data[1:]
+                df = pd.DataFrame(rows, columns=header)
+                all_dfs.append(df)
+
+    if all_dfs:
+        result = pd.concat(all_dfs, ignore_index=True)
+    else:
+        # Fallback: extract text lines
+        lines = []
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text()
+                if text:
+                    lines.extend(text.split("\n"))
+        if not lines:
+            raise ValueError(f"PDF contains no extractable text or tables: {file_path.name}")
+        result = pd.DataFrame({"text": lines})
+
+    return result
+
+
+def _parse_xml(file_path: Path) -> pd.DataFrame:
+    """Parse an XML file into a flat DataFrame.
+
+    Handles common government XML formats: tries to find repeating record
+    elements and flatten their children into columns.
+    """
+    from lxml import etree
+
+    tree = etree.parse(file_path)  # noqa: S320
+    root = tree.getroot()
+
+    # Strip namespaces for simpler access
+    for elem in root.iter():
+        if "}" in elem.tag:
+            elem.tag = elem.tag.split("}", 1)[1]
+
+    # Find the most common repeating child element (= the "records")
+    child_counts: dict[str, int] = {}
+    for child in root:
+        child_counts[child.tag] = child_counts.get(child.tag, 0) + 1
+
+    if not child_counts:
+        raise ValueError(f"XML file has no child elements: {file_path.name}")
+
+    record_tag = max(child_counts, key=child_counts.get)
+
+    records = []
+    for elem in root.iter(record_tag):
+        row: dict[str, str] = {}
+        for child in elem:
+            # Flatten one level of nesting
+            if len(child) == 0:
+                row[child.tag] = child.text or ""
+            else:
+                for subchild in child:
+                    key = f"{child.tag}.{subchild.tag}"
+                    row[key] = subchild.text or ""
+        if row:
+            records.append(row)
+
+    if not records:
+        raise ValueError(f"No records extracted from XML: {file_path.name}")
+
+    return pd.DataFrame(records)
+
+
+def _parse_geojson(file_path: Path) -> pd.DataFrame:
+    """Parse a GeoJSON file, flattening feature properties into a DataFrame.
+
+    Extracts geometry type and coordinates alongside all properties.
+    """
+    data = _json.loads(file_path.read_text())
+    features = data.get("features", [])
+    if not features:
+        raise ValueError(f"GeoJSON contains no features: {file_path.name}")
+
+    records = []
+    for feature in features:
+        row = dict(feature.get("properties", {}))
+        geometry = feature.get("geometry", {})
+        row["geometry_type"] = geometry.get("type", "")
+        coords = geometry.get("coordinates")
+        if coords:
+            # For Point geometry, extract lat/lon directly
+            if geometry.get("type") == "Point" and len(coords) >= 2:
+                row["longitude"] = coords[0]
+                row["latitude"] = coords[1]
+            else:
+                row["coordinates"] = str(coords)[:500]
+        records.append(row)
+
+    return pd.DataFrame(records)
+
+
+def _extract_zip(file_path: Path) -> Path | None:
+    """Extract the best data file from a ZIP archive.
+
+    Searches for CSV, JSON, Parquet, Excel, GeoJSON, or XML files.
+    Returns the path to the largest supported file found.
+    """
+    extract_dir = file_path.parent / f"{file_path.stem}_extracted"
+    extract_dir.mkdir(exist_ok=True)
+
+    supported = (".csv", ".tsv", ".json", ".jsonl", ".parquet", ".xlsx", ".xls", ".geojson", ".xml")
+    best: Path | None = None
+    best_size = 0
+
+    with zipfile.ZipFile(file_path, "r") as zf:
+        for info in zf.infolist():
+            if info.is_dir():
+                continue
+            ext = Path(info.filename).suffix.lower()
+            if ext in supported:
+                zf.extract(info, extract_dir)
+                extracted_path = extract_dir / info.filename
+                if extracted_path.stat().st_size > best_size:
+                    best = extracted_path
+                    best_size = extracted_path.stat().st_size
+
+    if best:
+        logger.info("Extracted %s (%d bytes) from ZIP", best.name, best_size)
+
+    return best
 
 
 def get_schema(conn: duckdb.DuckDBPyConnection, table: str) -> list[dict]:

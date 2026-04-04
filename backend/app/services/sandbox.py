@@ -74,6 +74,7 @@ def _guarded_write(obj: Any) -> Any:
 
 
 def _build_globals(session: Session) -> dict[str, Any]:
+    import datetime
     import math
     import statistics
 
@@ -81,6 +82,7 @@ def _build_globals(session: Session) -> dict[str, Any]:
     import pandas as pd
     import plotly.express as px
     import plotly.graph_objects as go
+    import scipy.stats as scipy_stats
 
     restricted_globals = safe_globals.copy()
 
@@ -130,6 +132,8 @@ def _build_globals(session: Session) -> dict[str, Any]:
     restricted_globals["math"] = math
     restricted_globals["statistics"] = statistics
     restricted_globals["json"] = json
+    restricted_globals["datetime"] = datetime
+    restricted_globals["scipy_stats"] = scipy_stats
 
     # Load dataframes from session tables
     for i, table in enumerate(session.tables):
