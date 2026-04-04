@@ -63,7 +63,7 @@ async def run_search(query: str) -> dict:
     total = 0
     downloadable = 0
     errors = []
-    for (name, _), result in zip(tasks, gathered):
+    for (name, _), result in zip(tasks, gathered, strict=True):
         if isinstance(result, Exception):
             errors.append(f"{name}: {type(result).__name__}: {result}")
             source_results[name] = {"count": 0, "downloadable": 0, "error": str(result)}
@@ -178,7 +178,8 @@ async def main():
         for name, info in search_result["by_source"].items():
             if info.get("count", 0) > 0:
                 titles = info.get("titles", [])
-                logger.info("  %s: %d results — %s", name, info["count"], titles[0] if titles else "")
+                first = titles[0] if titles else ""
+                logger.info("  %s: %d results — %s", name, info["count"], first)
 
         # Try downloading first result
         download_result = await try_download_first(search_result)
@@ -195,10 +196,12 @@ async def main():
         else:
             logger.warning("  Download: %s — %s", status, json.dumps(download_result)[:200])
 
-        results.append({
-            "search": search_result,
-            "download": download_result,
-        })
+        results.append(
+            {
+                "search": search_result,
+                "download": download_result,
+            }
+        )
 
     # Summary
     logger.info("\n=== SUMMARY ===")
