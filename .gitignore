@@ -15,3 +15,4 @@ tmp/
 /V-Dem-CY-FullOthers-v15_csv/*.csv
 /V-Dem-CY-FullOthers-v15_csv/*.pdf
 demo-video/
+stress_test_results.json
