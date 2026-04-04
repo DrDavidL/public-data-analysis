@@ -48,10 +48,21 @@ export default function PlotlyChart({ spec, sourceCode, meta, pinned, onTogglePi
   const [copied, setCopied] = useState(false);
 
   const data = (spec.data || []) as Plotly.Data[];
+  const specLayout = (spec.layout as Partial<Plotly.Layout>) || {};
+  const title = specLayout.title;
+  // Extract title text for display above the chart (supports wrapping)
+  const titleText =
+    typeof title === "string"
+      ? title
+      : typeof title === "object" && title !== null && "text" in title
+        ? (title as { text?: string }).text || ""
+        : "";
   const layout = {
-    ...(spec.layout as Partial<Plotly.Layout> || {}),
+    ...specLayout,
+    // Remove title from Plotly (we render it ourselves for better wrapping)
+    title: undefined,
     autosize: true,
-    margin: { t: 60, r: 20, b: 40, l: 50 },
+    margin: { t: 20, r: 20, b: 40, l: 50 },
   };
 
   const handleCopy = async () => {
@@ -63,6 +74,7 @@ export default function PlotlyChart({ spec, sourceCode, meta, pinned, onTogglePi
 
   return (
     <div style={{ width: "100%", minHeight: 350 }}>
+      {titleText && <div style={styles.chartTitle}>{titleText}</div>}
       <Plot
         data={data}
         layout={layout}
@@ -121,6 +133,15 @@ export default function PlotlyChart({ spec, sourceCode, meta, pinned, onTogglePi
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  chartTitle: {
+    fontSize: "0.9rem",
+    fontWeight: 600,
+    color: "#1e293b",
+    lineHeight: 1.35,
+    padding: "0.25rem 0.25rem 0",
+    wordWrap: "break-word",
+    overflowWrap: "break-word",
+  },
   codeSection: {
     marginTop: "0.25rem",
   },

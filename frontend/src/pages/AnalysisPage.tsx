@@ -512,7 +512,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   chartsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))",
+    gridTemplateColumns: "repeat(2, 1fr)",
     gap: "1rem",
   },
   downloadLink: {
