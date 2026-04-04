@@ -64,6 +64,30 @@
 
 **Rationale:** OWID was the most impactful — "life expectancy" alone returns perfect results but the 8-keyword refined query returned zero. The other two were runtime crashes that silently dropped results.
 
+## 2026-04-04: Stress test bugs — SEC EDGAR, USASpending, .tab files
+
+**Context:** Stress test (10 queries across 25 sources) revealed 3 runtime bugs: SEC EDGAR crashes on list-type `accession_no`, USASpending 422 errors from long keyword phrases, Harvard Dataverse `.tab` files fail DuckDB auto-detection.
+
+**Decision:** (1) SEC EDGAR — unwrap list to string for `accession_no`, (2) USASpending — split query into individual keywords via `extract_keywords()`, (3) Datastore — hint `delim='\t'` for `.tsv`/`.tab` files.
+
+**Rationale:** All three were silent failures that dropped entire sources from search results. After fixes, 9/10 stress test queries (previously failing) load successfully.
+
+## 2026-04-04: Chart titles rendered as HTML instead of Plotly SVG
+
+**Context:** Long chart titles were truncated/clipped inside Plotly's SVG viewport (60px top margin). Users couldn't read full titles, especially in a 2-column grid.
+
+**Decision:** Extract title from Plotly spec, render as a styled HTML `<div>` above the chart with `word-wrap: break-word`. Reduced Plotly top margin from 60px to 20px. Fixed grid to `repeat(2, 1fr)` for consistent 2-column layout.
+
+**Rationale:** HTML text wraps naturally; SVG text does not. This gives full title visibility at any chart width without requiring user interaction.
+
+## 2026-04-04: Dashboard auto-exit on last unpin
+
+**Context:** Unpinning the last chart in dashboard view hid the "Exit Dashboard" button, trapping users in an empty view with no way back.
+
+**Decision:** (1) Auto-exit dashboard view when `pinnedIndices` becomes empty, (2) Always show the back button while in dashboard view regardless of pin count. Renamed button to "Back to Analysis".
+
+**Rationale:** Simple state management fix. The button visibility condition changed from `pinnedIndices.size > 0` to `pinnedIndices.size > 0 || dashboardView`.
+
 ## 2026-04-04: GitHub Actions workflow permissions
 
 **Context:** CodeQL flagged 6 alerts for missing `permissions` block in `ci.yml`, meaning all jobs had write access to the repository.
