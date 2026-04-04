@@ -56,6 +56,14 @@
 
 **Rationale:** These are safe, read-only modules that dramatically expand what AI-generated analysis code can do without additional imports. The prompt guidance prevents common errors with the new data types.
 
+## 2026-04-04: Search quality fixes for OWID, Chicago Health Atlas, Federal Register
+
+**Context:** Testing "how is life span changing" returned only 4 marginal results — OWID (life expectancy charts), Chicago Health Atlas (life expectancy by community), and data.gov (NCHS death rates) all failed to return relevant data despite having it.
+
+**Decision:** Three fixes: (1) OWID — truncate refined query to 3 keywords (their API AND-alls all terms, so long queries return nothing), (2) Chicago Health Atlas — add isinstance guard for subcategory entries that are strings instead of dicts, (3) Federal Register — handle document_number as list instead of string.
+
+**Rationale:** OWID was the most impactful — "life expectancy" alone returns perfect results but the 8-keyword refined query returned zero. The other two were runtime crashes that silently dropped results.
+
 ## 2026-04-04: GitHub Actions workflow permissions
 
 **Context:** CodeQL flagged 6 alerts for missing `permissions` block in `ci.yml`, meaning all jobs had write access to the repository.
