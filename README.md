@@ -4,13 +4,14 @@ AI-powered platform for searching, downloading, and analyzing public datasets wi
 
 ## Features
 
-- **Multi-source dataset search** — queries 17 sources (data.gov, World Bank, Kaggle, HuggingFace, SDOH Place, CMS, Harvard Dataverse, HUD, BLS, FRED, CMAP, Census, Chicago Health Atlas, OWID, OECD, V-Dem, EIA) simultaneously
+- **Multi-source dataset search** — queries 25 sources simultaneously with circuit breaker protection and disk-cached responses
 - **AI-ranked results** — GPT-5-mini ranks and describes datasets by relevance to your question
 - **Interactive analysis** — ask follow-up questions in natural language, get SQL/Python-backed answers with Plotly charts
-- **Secure REPL** — write your own SQL or Python against loaded datasets in a sandboxed environment
+- **Secure REPL** — write your own SQL or Python against loaded datasets in a sandboxed environment (pandas, numpy, plotly, scipy, datetime)
 - **Cross-dataset joins** — load multiple datasets into the same DuckDB session and join them with SQL
+- **Multi-format ingestion** — CSV, JSON, Parquet, Excel, PDF (table extraction), XML, GeoJSON, ZIP archives
 - **Large dataset support** — DuckDB handles files larger than RAM via streaming
-- **Admin email management** — add/remove allowed users at runtime without restarting
+- **Admin tools** — manage allowed users at runtime, admin password reset, self-service password change
 
 ## Architecture
 
@@ -20,8 +21,9 @@ React (Vite + TypeScript + Plotly.js)
 FastAPI
   ├── Auth (JWT + email allowlist)
   ├── Admin (runtime allowlist management)
-  ├── Dataset Search (17 sources → GPT-5-mini ranking)
+  ├── Dataset Search (25 sources → GPT-5-mini ranking)
   ├── Analysis (GPT-5.2 → SQL/Plotly chart generation)
+  ├── HTTP Client (circuit breaker + disk cache + retry)
   ├── DuckDB (per-session, in-memory)
   └── Sandbox (RestrictedPython REPL)
 ```
@@ -397,7 +399,7 @@ az containerapp update --name $APP --resource-group $RG \
 
 ## Admin API
 
-Manage the email allowlist at runtime (requires `ADMIN_EMAILS` membership):
+Manage users and the email allowlist at runtime (requires `ADMIN_EMAILS` membership):
 
 ```bash
 TOKEN="your-jwt-token"
@@ -414,9 +416,36 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 # Remove an email
 curl -X DELETE -H "Authorization: Bearer $TOKEN" \
   https://your-app/api/admin/allowlist/old@example.com
+
+# Reset a user's password (admin only)
+curl -X PUT -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "new_password": "new-secure-password"}' \
+  https://your-app/api/admin/reset-password
+```
+
+Users can change their own password (requires authentication):
+
+```bash
+curl -X PUT -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"current_password": "old-password", "new_password": "new-password"}' \
+  https://your-app/api/auth/change-password
 ```
 
 Changes take effect immediately. The env var `ALLOWED_EMAILS` seeds the allowlist on startup; runtime changes persist until the app restarts.
+
+## Data Sources
+
+| Category | Sources |
+|----------|---------|
+| **Government** | data.gov, Census, BLS, FRED, EIA, HUD, CMAP, CMS |
+| **Federal spending & regulation** | USASpending, Federal Register, SEC EDGAR, CFPB |
+| **Health** | ClinicalTrials.gov, OpenFDA, Chicago Health Atlas, SDOH Place |
+| **Environment** | EPA GHGRP |
+| **Finance** | FDIC |
+| **International** | World Bank, OECD, OWID, V-Dem |
+| **Community** | Kaggle, HuggingFace, Harvard Dataverse |
 
 ## Project Structure
 
@@ -427,8 +456,8 @@ public-data-analysis/
 │   │   ├── main.py              # FastAPI app
 │   │   ├── config.py            # Settings from .env
 │   │   ├── routers/             # auth, datasets, analysis, admin
-│   │   ├── services/            # AI, search, analysis, sandbox, datastore, allowlist
-│   │   │   └── sources/         # 17 dataset source adapters
+│   │   ├── services/            # AI, search, analysis, sandbox, datastore, http_client, allowlist
+│   │   │   └── sources/         # 25 dataset source adapters
 │   │   ├── schemas/             # Pydantic models
 │   │   └── core/                # JWT security, session manager
 │   ├── tests/

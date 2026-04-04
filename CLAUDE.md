@@ -8,7 +8,8 @@ AI-powered platform for searching, downloading, and analyzing public datasets wi
 React (Vite+TS+Plotly) → FastAPI → Azure OpenAI (GPT-5-mini search, GPT-5.2 analysis)
                                   → DuckDB (per-session, in-memory)
                                   → RestrictedPython sandbox (REPL)
-                                  → 17 data sources (data.gov, World Bank, Kaggle, HuggingFace, SDOH Place, CMS, Harvard Dataverse, HUD, BLS, FRED, CMAP, Census, Chicago Health Atlas, OWID, OECD, V-Dem, EIA)
+                                  → 25 data sources
+                                  → Shared HTTP client (circuit breaker + disk cache + retry)
 ```
 
 ## Key Files
@@ -19,7 +20,8 @@ React (Vite+TS+Plotly) → FastAPI → Azure OpenAI (GPT-5-mini search, GPT-5.2 
 | `backend/app/config.py` | Settings from .env |
 | `backend/app/services/analysis.py` | AI Q&A + chart generation |
 | `backend/app/services/sandbox.py` | RestrictedPython code execution |
-| `backend/app/services/datastore.py` | DuckDB data operations |
+| `backend/app/services/datastore.py` | DuckDB data operations + PDF/XML/GeoJSON/ZIP loading |
+| `backend/app/services/http_client.py` | Shared HTTP client (circuit breaker, disk cache, retry) |
 | `backend/app/core/sessions.py` | Session manager (DuckDB + chat) |
 | `frontend/src/pages/AnalysisPage.tsx` | Main analysis workspace |
 
@@ -55,3 +57,8 @@ Copy `.env.example` to `.env` and fill in Azure OpenAI credentials. See `.env.ex
 - Use `developer` role (not `system`) for Azure OpenAI messages
 - DuckDB is per-session in-memory — no persistent database
 - Sandbox blocks: `os`, `sys`, `subprocess`, `open`, `eval`, `exec`
+- Sandbox pre-injects: `pd`, `np`, `px`, `go`, `datetime`, `scipy_stats`, `math`, `statistics`, `json`
+- Datastore supports: CSV, TSV, JSON, JSONL, Parquet, Excel, PDF, XML, GeoJSON, ZIP
+- HTTP client uses JSON-only disk cache (not pickle) to mitigate CVE-2025-69872
+- SSRF protection: domain allowlist + DNS rebinding guard + redirect validation
+- `_download_file` validates every redirect hop against the allowlist
