@@ -17,7 +17,12 @@ async def reload(session_id: str, email: str = Depends(get_current_user)) -> dic
     saved = session_store.get_session(email, session_id)
     if not saved:
         raise HTTPException(status_code=404, detail="Saved session not found")
-    return await reload_session(saved, owner=email)
+    try:
+        return await reload_session(saved, owner=email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to reload session") from None
 
 
 @router.delete("/{session_id}")

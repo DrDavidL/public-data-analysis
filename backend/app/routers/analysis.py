@@ -93,12 +93,12 @@ async def start(body: StartRequest, email: str = Depends(get_current_user)) -> S
         return await start_analysis(body, owner=email)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:
+    except Exception:
         logger.exception("start_analysis failed for %s/%s", body.source, body.dataset_id)
         raise HTTPException(
             status_code=502,
-            detail=f"Failed to load dataset from {body.source}: {type(exc).__name__}",
-        ) from exc
+            detail=f"Failed to load dataset from {body.source}. Please try again.",
+        ) from None
 
 
 @router.post("/ask", response_model=AnalysisResponse)

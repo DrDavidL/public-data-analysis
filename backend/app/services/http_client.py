@@ -55,7 +55,7 @@ _cache = diskcache.Cache(_CACHE_DIR, size_limit=500 * 1024 * 1024, disk=_JSONDis
 
 def _cache_key(method: str, url: str, params: dict | None) -> str:
     raw = f"{method}:{url}:{sorted((params or {}).items())}"
-    return hashlib.md5(raw.encode()).hexdigest()  # noqa: S324
+    return hashlib.sha256(raw.encode()).hexdigest()
 
 
 # ---------------------------------------------------------------------------

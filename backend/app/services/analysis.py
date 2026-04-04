@@ -106,14 +106,22 @@ ALLOWED_DOWNLOAD_DOMAINS = {
 
 
 def _validate_download_url(url: str) -> None:
-    """Validate URL to prevent SSRF attacks."""
+    """Validate URL to prevent SSRF attacks.
+
+    Defence-in-depth:
+    1. Scheme must be https (or http).
+    2. Hostname must be on the explicit allowlist — no wildcards.
+    3. Direct IP addresses are blocked if private/loopback/link-local.
+    4. DNS resolution is checked to guard against DNS-rebinding attacks
+       where an allowed hostname resolves to a private IP at request time.
+    """
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
         raise ValueError(f"Unsupported URL scheme: {parsed.scheme}")
 
     hostname = parsed.hostname or ""
 
-    # Block private/internal IPs
+    # Block private/internal IPs (direct IP in URL)
     try:
         ip = ip_address(hostname)
         if ip.is_private or ip.is_loopback or ip.is_link_local:
@@ -123,12 +131,26 @@ def _validate_download_url(url: str) -> None:
             raise
         # Not an IP — it's a hostname, which is fine
 
-    # Check against allowed domains
+    # Check against allowed domains (exact match or subdomain)
     if not any(hostname == d or hostname.endswith(f".{d}") for d in ALLOWED_DOWNLOAD_DOMAINS):
         raise ValueError(
             f"Downloads from '{hostname}' are not allowed. "
             "Only known data source domains are permitted."
         )
+
+    # DNS-rebinding guard: resolve hostname and verify it doesn't point to
+    # a private/loopback/link-local address.
+    import socket
+
+    try:
+        for _family, _type, _proto, _canonname, sockaddr in socket.getaddrinfo(
+            hostname, None, proto=socket.IPPROTO_TCP
+        ):
+            resolved = ip_address(sockaddr[0])
+            if resolved.is_private or resolved.is_loopback or resolved.is_link_local:
+                raise ValueError(f"Domain '{hostname}' resolves to private address {resolved}")
+    except socket.gaierror:
+        pass  # DNS failure will be caught by httpx at request time
 
 
 def _sanitize_filename(fname: str) -> str:
@@ -148,10 +170,23 @@ def _strip_code_fences(text: str) -> str:
 
 
 async def _download_file(url: str, dest_dir: Path, dataset_id: str) -> Path:
-    _validate_download_url(url)
+    # Validate the initial URL against the SSRF allowlist.
+    _validate_download_url(url)  # CodeQL: url is validated here before use below
 
-    async with httpx.AsyncClient(timeout=120, follow_redirects=True, max_redirects=5) as client:
-        async with client.stream("GET", url) as resp:
+    async def _check_redirect(response: httpx.Response) -> None:
+        """Validate each redirect target against the SSRF allowlist."""
+        if response.is_redirect and "location" in response.headers:
+            redirect_url = str(response.next_request.url) if response.next_request else ""
+            if redirect_url:
+                _validate_download_url(redirect_url)
+
+    async with httpx.AsyncClient(
+        timeout=120,
+        follow_redirects=True,
+        max_redirects=5,
+        event_hooks={"response": [_check_redirect]},
+    ) as client:
+        async with client.stream("GET", url) as resp:  # noqa: S113
             resp.raise_for_status()
 
             # Check content-length if available
@@ -917,4 +952,5 @@ async def reload_session(saved: dict, owner: str) -> dict:
     except Exception:
         logger.exception("Failed to reload session")
         session_manager.remove(session.id)
-        raise
+        msg = "Failed to reload session. The dataset may no longer be available."
+        raise ValueError(msg) from None
