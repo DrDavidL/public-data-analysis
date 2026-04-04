@@ -268,7 +268,7 @@ export default function AnalysisPage() {
         >
           Feedback
         </a>
-        {pinnedIndices.size > 0 && (
+        {(pinnedIndices.size > 0 || dashboardView) && (
           <button
             onClick={() => setDashboardView(!dashboardView)}
             style={{
@@ -276,7 +276,7 @@ export default function AnalysisPage() {
               background: dashboardView ? "#2563eb" : "#1e293b",
             }}
           >
-            {dashboardView ? "Exit Dashboard" : `Dashboard (${pinnedIndices.size})`}
+            {dashboardView ? "Back to Analysis" : `Dashboard (${pinnedIndices.size})`}
           </button>
         )}
         <button
@@ -361,6 +361,7 @@ export default function AnalysisPage() {
                             const next = new Set(prev);
                             if (next.has(i)) next.delete(i);
                             else next.add(i);
+                            if (next.size === 0) setDashboardView(false);
                             return next;
                           });
                         }}
