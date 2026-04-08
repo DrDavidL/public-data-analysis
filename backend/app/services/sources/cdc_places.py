@@ -8,6 +8,9 @@ No API key required (unauthenticated: 1 000 req/hr).
 
 from __future__ import annotations
 
+import csv
+import io
+import json
 import logging
 from pathlib import Path
 
@@ -160,7 +163,12 @@ class CDCPlacesSource:
         )
 
     async def download(self, dataset_id: str, dest_dir: Path) -> Path | None:
-        """Download CDC PLACES data as CSV."""
+        """Download CDC PLACES data as CSV.
+
+        Post-processes the geolocation column (Socrata JSON point format)
+        into separate ``latitude`` and ``longitude`` numeric columns so
+        the analysis AI doesn't need to parse it.
+        """
         url = await self.get_download_url(dataset_id)
         if not url:
             logger.warning("CDC PLACES: invalid dataset_id %r", dataset_id)
@@ -168,15 +176,79 @@ class CDCPlacesSource:
 
         dest_dir.mkdir(parents=True, exist_ok=True)
         safe_id = dataset_id.replace(":", "_")
+        raw_dest = dest_dir / f"cdc_places_{safe_id}_raw.csv"
         dest = dest_dir / f"cdc_places_{safe_id}.csv"
 
         try:
-            await _client.stream_download(url, dest)
-            if dest.stat().st_size < 50:
+            await _client.stream_download(url, raw_dest)
+            if raw_dest.stat().st_size < 50:
                 logger.warning("CDC PLACES download too small for %s", dataset_id)
-                dest.unlink(missing_ok=True)
+                raw_dest.unlink(missing_ok=True)
                 return None
+
+            # Post-process: extract lat/lon from Socrata geolocation JSON
+            _extract_latlon(raw_dest, dest)
+            raw_dest.unlink(missing_ok=True)
             return dest
         except Exception as exc:
             logger.warning("CDC PLACES download failed for %s: %s", dataset_id, exc)
+            # Fall back to raw file if post-processing failed
+            if raw_dest.exists() and raw_dest.stat().st_size > 50:
+                raw_dest.rename(dest)
+                return dest
             return None
+
+
+def _extract_latlon(src: Path, dst: Path) -> None:
+    """Read *src* CSV, replace ``geolocation`` with ``latitude``/``longitude``."""
+    text = src.read_text(encoding="utf-8", errors="replace")
+    reader = csv.DictReader(io.StringIO(text))
+    fieldnames = list(reader.fieldnames or [])
+
+    # Build output columns: swap geolocation for latitude + longitude
+    out_fields = []
+    for f in fieldnames:
+        if f.lower() == "geolocation":
+            out_fields.extend(["latitude", "longitude"])
+        else:
+            out_fields.append(f)
+
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=out_fields, extrasaction="ignore")
+    writer.writeheader()
+
+    for row in reader:
+        geo_raw = row.pop("geolocation", "") or row.pop("Geolocation", "") or ""
+        lat, lon = _parse_geo(geo_raw)
+        row["latitude"] = lat
+        row["longitude"] = lon
+        writer.writerow(row)
+
+    dst.write_text(buf.getvalue(), encoding="utf-8")
+
+
+def _parse_geo(raw: str) -> tuple[str, str]:
+    """Parse Socrata point to (lat, lon) strings.
+
+    Handles both JSON (``{"type":"Point","coordinates":[-90,41]}``)
+    and WKT (``POINT (-90 41)``) formats.
+    """
+    raw = raw.strip()
+    if not raw:
+        return ("", "")
+    # JSON format (most common from Socrata CSV)
+    if raw.startswith("{"):
+        try:
+            obj = json.loads(raw)
+            coords = obj.get("coordinates", [])
+            if len(coords) >= 2:
+                return (str(coords[1]), str(coords[0]))  # [lon, lat] → (lat, lon)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    # WKT format fallback
+    if raw.upper().startswith("POINT"):
+        inner = raw.split("(", 1)[-1].rstrip(")")
+        parts = inner.strip().split()
+        if len(parts) >= 2:
+            return (parts[1], parts[0])  # POINT(lon lat) → (lat, lon)
+    return ("", "")
