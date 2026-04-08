@@ -290,6 +290,7 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
     try:
         # Download dataset — always prefer source adapter (handles format quirks)
         from app.services.sources.bls import BLSSource
+        from app.services.sources.cdc_places import CDCPlacesSource
         from app.services.sources.census import CensusSource
         from app.services.sources.cfpb import CFPBSource
         from app.services.sources.clinicaltrials import ClinicalTrialsSource
@@ -332,6 +333,7 @@ async def start_analysis(req: StartRequest, owner: str = "") -> StartResponse:
             "vdem": VDemSource(),
             "eia": EIASource(),
             "usaspending": USASpendingSource(),
+            "cdc_places": CDCPlacesSource(),
             "clinicaltrials": ClinicalTrialsSource(),
             "openfda": OpenFDASource(),
             "cfpb": CFPBSource(),
@@ -840,6 +842,7 @@ async def reload_session(saved: dict, owner: str) -> dict:
 
         # Re-download using the same logic as start_analysis
         from app.services.sources.bls import BLSSource
+        from app.services.sources.cdc_places import CDCPlacesSource
         from app.services.sources.census import CensusSource
         from app.services.sources.cfpb import CFPBSource
         from app.services.sources.clinicaltrials import ClinicalTrialsSource
@@ -882,6 +885,7 @@ async def reload_session(saved: dict, owner: str) -> dict:
             "vdem": VDemSource(),
             "eia": EIASource(),
             "usaspending": USASpendingSource(),
+            "cdc_places": CDCPlacesSource(),
             "clinicaltrials": ClinicalTrialsSource(),
             "openfda": OpenFDASource(),
             "cfpb": CFPBSource(),

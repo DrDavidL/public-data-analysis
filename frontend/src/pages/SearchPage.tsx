@@ -24,6 +24,7 @@ const SEARCH_STEPS = [
   "Searching OECD...",
   "Searching V-Dem...",
   "Searching EIA...",
+  "Searching CDC PLACES...",
   "Ranking results by relevance...",
 ];
 
@@ -153,6 +154,13 @@ const SOURCES = [
     color: "#1B2B65",
     description: "Federal government spending data — contracts, grants, loans, and other financial awards. Track billions in federal spending by agency, recipient, location, and program across all government departments.",
     url: "https://www.usaspending.gov",
+  },
+  {
+    name: "CDC PLACES",
+    key: "cdc_places",
+    color: "#0D5C63",
+    description: "CDC Population Level Analysis and Community Estimates — local health data for the entire US. County, city, census tract, and ZIP code level estimates for 39 health measures including chronic disease prevalence, prevention, risk behaviors, disability, and social needs.",
+    url: "https://www.cdc.gov/places",
   },
   {
     name: "ClinicalTrials",

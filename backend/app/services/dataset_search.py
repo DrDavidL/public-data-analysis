@@ -6,6 +6,7 @@ from app.schemas.datasets import DatasetResult
 from app.services.ai import chat_mini, extract_json
 from app.services.source_index import SourceIndex
 from app.services.sources.bls import BLSSource
+from app.services.sources.cdc_places import CDCPlacesSource
 from app.services.sources.census import CensusSource
 from app.services.sources.cfpb import CFPBSource
 from app.services.sources.chicago_health_atlas import ChicagoHealthAtlasSource
@@ -52,6 +53,7 @@ ALL_SOURCES = [
     VDemSource(),
     EIASource(),
     USASpendingSource(),
+    CDCPlacesSource(),
     ClinicalTrialsSource(),
     OpenFDASource(),
     CFPBSource(),

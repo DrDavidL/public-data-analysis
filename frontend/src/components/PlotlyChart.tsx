@@ -33,6 +33,7 @@ const SOURCE_LABELS: Record<string, string> = {
   vdem: "V-Dem",
   eia: "EIA",
   usaspending: "USASpending",
+  cdc_places: "CDC PLACES",
   clinicaltrials: "ClinicalTrials.gov",
   openfda: "OpenFDA",
   cfpb: "CFPB",
